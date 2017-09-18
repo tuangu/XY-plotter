@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename resource &apos;plotter/src/plotter.cpp&apos; to &apos;main.cpp&apos;" description="Rename resource &apos;plotter.cpp&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="src/plotter.cpp" name="main.cpp" stamp="1505765748547" updateReferences="true"/>
+</session>
