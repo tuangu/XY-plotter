@@ -8,6 +8,11 @@
 
 #include <cr_section_macros.h>
 
+#include "user_vcom.h"
+#include "Laser.h"
+#include "Servo.h"
+#include "StepperMotor.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -26,6 +31,10 @@ int main(void) {
 
     xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE,
                 NULL, (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
+
+    xTaskCreate(cdc_task, "CDC Task", configMINIMAL_STACK_SIZE * 2, NULL,
+                (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
+
 
     vTaskStartScheduler();
 
