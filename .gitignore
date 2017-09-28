@@ -28,7 +28,7 @@
 *.axf
 
 #Eclipse
-.metadata/
+.metadata
 Debug/
 
 #Mac
