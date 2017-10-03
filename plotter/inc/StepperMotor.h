@@ -8,6 +8,7 @@
 #ifndef STEPPERMOTOR_H_
 #define STEPPERMOTOR_H_
 #include "DigitalIopin.h"
+#include "timers.c"
 
 class StepperMotor {
 private:
@@ -15,6 +16,8 @@ private:
 	DigitalIoPin xDir;
 	DigitalIoPin yMotor;
 	DigitalIoPin yDir;
+
+
 public:
     StepperMotor();
     virtual ~StepperMotor();

@@ -24,6 +24,4 @@ struct Command {
     float params[6] = {0};
 };
 
-
-
 #endif /* COMMAND_H_ */
