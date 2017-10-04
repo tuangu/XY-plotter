@@ -31,6 +31,11 @@ DigitalIoPin::DigitalIoPin(int port_, int pin_, pinMode mode, bool invert) :
     }
 }
 
+DigitalIoPin::DigitalIoPin(DigitalIoPin &rhs) {
+	rhs.pin = this->pin;
+	rhs.port = this->port;
+}
+
 DigitalIoPin::~DigitalIoPin() {
     // TODO Auto-generated destructor stub
 }
