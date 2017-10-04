@@ -1,12 +1,11 @@
 #ifndef STEPPERMOTOR_H_
 #define STEPPERMOTOR_H_
 
+#include "FreeRTOS.h"
 #include "DigitalIopin.h"
 #include "timers.h"
 #include "chip.h"
 #include "DigitalIoPin.h"
-
-#include "FreeRTOS.h"
 #include "semphr.h"
 
 /* XY Plotter */

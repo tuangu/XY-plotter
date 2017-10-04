@@ -1,13 +1,9 @@
+#include "FreeRTOS.h"
 #include <StepperMotor.h>
-
 #include <stdlib.h>
-
 #include "chip.h"
 #include "DigitalIoPin.h"
-
-#include "FreeRTOS.h"
 #include "semphr.h"
-#include <stdlib.h>
 
 StepperMotor::StepperMotor(LPC_SCT_T *timer_, int rpm_, int mPort, int mPin, int dPort, int dPin):
     stepPin(mPort, mPin, DigitalIoPin::output, false), dirPin(dPort, dPin, DigitalIoPin::output, false){

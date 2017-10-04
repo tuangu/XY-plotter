@@ -17,7 +17,6 @@
 #endif
 #endif
 #include "FreeRTOS.h"
-
 #define PWM_FREQ 1000
 #define PWM_CYCLE 255
 
