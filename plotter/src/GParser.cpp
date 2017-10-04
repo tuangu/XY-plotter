@@ -1,21 +1,11 @@
-/*
- * GParser.cpp
- *
- *  Created on: Sep 18, 2017
- *      Author: tuanngu
- */
-
 #include <GParser.h>
 
 #include <stdlib.h>
 
 GParser::GParser() {
-    // TODO Auto-generated constructor stub
-
 }
 
 GParser::~GParser() {
-    // TODO Auto-generated destructor stub
 }
 
 Command GParser::parse(char *instruction, int len) {
