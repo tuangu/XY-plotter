@@ -45,9 +45,11 @@ private:
 
     DigitalIoPin stepPin;
     DigitalIoPin dirPin;
-    bool stepValue = false;
 
+    bool stepValue = false;
+    bool diretion = false;
     float currentPosition;
+    float base;
 };
 
 #endif /* STEPPERMOTOR_H_ */

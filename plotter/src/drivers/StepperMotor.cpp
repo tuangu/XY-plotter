@@ -12,8 +12,10 @@ StepperMotor::StepperMotor(LPC_SCT_T *timer_, int rpm_, short mPort, short mPin,
 	/* Select timer, irq handler*/
     if (timer_ == LPC_SCT2) {
         this->irq = SCT2_IRQn;
+        base = 380;
     } else if (timer_ == LPC_SCT3) {
         this->irq = SCT3_IRQn;
+        base = 310;
     }
 
     /* initialize step and direction pin */
@@ -36,10 +38,15 @@ StepperMotor::~StepperMotor() {
 }
 
 void StepperMotor::move(float newPos) {
-
+	float distance = abs(newPos - currentPosition);
+	if(newPos - currentPosition < 0){
+		diretion = !diretion;
+	}
+	totalStep = base/distance;
+	Timer_start(totalStep);
 }
 
-void StepperMotor::Timer_start(int count, int us) {
+void StepperMotor::Timer_start(int count) {
     uint64_t cmpValue = Chip_Clock_GetSystemClockRate() * 60 / (rpm * motorPulsePerRevolution);
 
     NVIC_DisableIRQ(irq);
