@@ -18,9 +18,11 @@
 
 void setupHardware();
 
-/***** Task Declaration *****/
+/* Task Declaration */
 void vReceiveTask(void *vParameters);
 void vExecuteTask(void *vParameters);
+
+/* Motor */
 
 int main(void) {
 
@@ -55,14 +57,30 @@ void setupHardware() {
 
 void vReceiveTask(void *vParameters) {
 
+    while (1) {
+
+    }
 }
 
 void vExecuteTask(void *vParameters) {
 
+    while (1) {
+
+    }
 }
 
 /* the following is required if runtime statistics are to be collected */
 extern "C" {
+
+/* X axis motor */
+void SCT2_IRQHandler(void) {
+
+}
+
+/* Y axis motor */
+void SCT3_IRQHandler(void) {
+
+}
 
 void vConfigureTimerForRunTimeStats(void) {
     Chip_SCT_Init(LPC_SCTSMALL1);

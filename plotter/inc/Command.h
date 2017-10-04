@@ -1,10 +1,3 @@
-/*
- * Command.h
- *
- *  Created on: Sep 28, 2017
- *      Author: tuanngu
- */
-
 #ifndef COMMAND_H_
 #define COMMAND_H_
 
