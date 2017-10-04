@@ -1,10 +1,3 @@
-/*
- * Servo.cpp
- *
- *  Created on: Sep 18, 2017
- *      Author: tuanngu
- */
-
 #include <Servo.h>
 
 Servo::Servo() {

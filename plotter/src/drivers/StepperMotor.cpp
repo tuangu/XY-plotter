@@ -1,5 +1,7 @@
 #include <StepperMotor.h>
 
+#include <stdlib.h>
+
 #include "chip.h"
 #include "DigitalIoPin.h"
 
@@ -7,21 +9,18 @@
 #include "semphr.h"
 #include <stdlib.h>
 
-StepperMotor::StepperMotor(LPC_SCT_T *timer_, int rpm_, short mPort, short mPin, short dPort, short dPin):
-        timer(timer_) {
+StepperMotor::StepperMotor(LPC_SCT_T *timer_, int rpm_, int mPort, int mPin, int dPort, int dPin):
+    stepPin(mPort, mPin, DigitalIoPin::output, false), dirPin(dPort, dPin, DigitalIoPin::output, false){
+    this->timer = timer_;
 
 	/* Select timer, irq handler*/
     if (timer_ == LPC_SCT2) {
         this->irq = SCT2_IRQn;
-        base = 380;
+        this->base = 380;
     } else if (timer_ == LPC_SCT3) {
         this->irq = SCT3_IRQn;
-        base = 310;
+        this->base = 310;
     }
-
-    /* initialize step and direction pin */
-    stepPin = DigitalIoPin(mPort, mPin, DigitalIoPin::pullup, true);
-    dirPin = DigitalIoPin(dPort, dPin, DigitalIoPin::pullup, true);
 
     /* Speed */
     this->rpm = (rpm_ > 0) ? rpm_ : 60;
@@ -82,8 +81,8 @@ bool StepperMotor::irqHandler() {
 		stepPin.write(stepValue);
 		stepValue = !stepValue;
 
-#ifdef DEBUG
-        if ((RIT_count % 100) == 0) {
+#ifdef DEBUG_XY
+        if ((Timer_count % 100) == 0) {
             Board_LED_Toggle(2);
         }
 #endif

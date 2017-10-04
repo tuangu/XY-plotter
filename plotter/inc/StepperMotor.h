@@ -6,6 +6,7 @@
 #include "chip.h"
 #include "DigitalIoPin.h"
 
+#include "FreeRTOS.h"
 #include "semphr.h"
 
 /* XY Plotter */
@@ -25,7 +26,7 @@
 
 class StepperMotor {
 public:
-    StepperMotor(LPC_SCT_T *timer_, int rpm_, short mPort, short mPin, short dPort, short dPin);
+    StepperMotor(LPC_SCT_T *timer_, int rpm_, int mPort, int mPin, int dPort, int dPin);
     virtual ~StepperMotor();
 
     void setTotalStep(int steps);
