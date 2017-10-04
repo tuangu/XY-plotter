@@ -26,8 +26,6 @@ public:
 private:
     int port = 0;
     int pin = 8;
-
-
 };
 
 #endif /* SERVO_H_ */

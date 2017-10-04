@@ -15,7 +15,6 @@ Servo::Servo() {
     LPC_SCT0->OUT[0].SET = (1 << 0);                    // event 0 will set SCTx_OUT0
     LPC_SCT0->OUT[0].CLR = (1 << 1);                    // event 1 will clear SCTx_OUT0
     LPC_SCT0->CTRL_L &= ~(1 << 2);
-
 }
 
 void Servo::moveServo(double value){
@@ -41,7 +40,6 @@ void Servo::moveServo(double value){
     ITM_write(debug);
 
     Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, port, pin);
-
 }
 
 Servo::~Servo() {
