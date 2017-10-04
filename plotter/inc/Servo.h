@@ -1,10 +1,3 @@
-/*
- * Servo.h
- *
- *  Created on: Sep 18, 2017
- *      Author: tuanngu
- */
-
 #ifndef SERVO_H_
 #define SERVO_H_
 

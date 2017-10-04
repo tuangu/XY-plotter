@@ -1,10 +1,3 @@
-/*
- * GParser.h
- *
- *  Created on: Sep 18, 2017
- *      Author: tuanngu
- */
-
 #ifndef GPARSER_H_
 #define GPARSER_H_
 

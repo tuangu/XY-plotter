@@ -4,6 +4,7 @@
 #include "chip.h"
 #include "DigitalIoPin.h"
 
+#include "FreeRTOS.h"
 #include "semphr.h"
 
 /* XY Plotter */
@@ -23,7 +24,7 @@
 
 class StepperMotor {
 public:
-    StepperMotor(LPC_SCT_T *timer_, int rpm_, short mPort, short mPin, short dPort, short dPin);
+    StepperMotor(LPC_SCT_T *timer_, int rpm_, int mPort, int mPin, int dPort, int dPin);
     virtual ~StepperMotor();
 
     void setTotalStep(int steps);
@@ -32,7 +33,7 @@ public:
     void setCurrentPosition(float newPos);
 
     void move(float newPos);
-    void Timer_start(int count, int us);
+    void Timer_start(int count);
     bool irqHandler();
 private:
     SemaphoreHandle_t sbTimer;

@@ -6,11 +6,16 @@
 #endif
 #endif
 
-#define DEBUG
+#define DEBUG_XY
 
 #include <cr_section_macros.h>
 
 #include "string.h"
+
+#include "FreeRTOS.h"
+#include "user_vcom.h"
+#include "task.h"
+#include "queue.h"
 
 #include "GParser.h"
 #include "Laser.h"
@@ -18,10 +23,7 @@
 #include "StepperMotor.h"
 #include "Command.h"
 
-#include "FreeRTOS.h"
-#include "user_vcom.h"
-#include "task.h"
-#include "queue.h"
+
 
 void setupHardware();
 
@@ -80,7 +82,7 @@ void vCalibrateTask(void *vParameters) {
 }
 
 void vReceiveTask(void *vParameters) {
-	GParser paser();
+	GParser parser;
 
     while (1) {
     	/* get GCode from mDraw */
@@ -157,12 +159,12 @@ extern "C" {
 
 /* X axis motor */
 void SCT2_IRQHandler(void) {
-	portYIELD_FROM_ISR(xmotor->irqHandler());
+	portEND_SWITCHING_ISR(xmotor->irqHandler());
 }
 
 /* Y axis motor */
 void SCT3_IRQHandler(void) {
-	portYIELD_FROM_ISR(ymotor->irqHandler());
+	portEND_SWITCHING_ISR(ymotor->irqHandler());
 }
 
 void vConfigureTimerForRunTimeStats(void) {
