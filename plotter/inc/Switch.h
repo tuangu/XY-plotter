@@ -12,6 +12,4 @@
 #define limitYMaxPin    0
 
 
-
-
 #endif /* SWITCH_H_ */

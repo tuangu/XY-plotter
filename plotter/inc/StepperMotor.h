@@ -15,6 +15,9 @@ private:
 =======
 
 #include "chip.h"
+#include "DigitalIoPin.h"
+
+#include "semphr.h"
 
 /* XY Plotter */
 #define motorXPort      0
@@ -38,27 +41,29 @@ public:
     virtual ~StepperMotor();
 
     void setTotalStep(int steps);
-    void Timer_start(int count, int us);
-
-    void move(float newPos);
-
     int getRpm();
     void setRpm(int rpm);
-    short getMotorPort();
-    short getMotorPin();
-    short getDirPort();
-    short getDirPin();
+    void setCurrentPosition(float newPos);
+
+    void move(float newPos);
+    void Timer_start(int count, int us);
+    bool irqHandler();
 private:
+    SemaphoreHandle_t sbTimer;
+
     LPC_SCT_T *timer;
+    IRQn_Type irq;
+    int Timer_count;
     int rpm;
     int totalStep;
 
-    short motorPort;
-    short motorPin;
-    short dirPort;
-    short dirPin;
+    DigitalIoPin stepPin;
+    DigitalIoPin dirPin;
 
+    bool stepValue = false;
+    bool diretion = false;
     float currentPosition;
+    float base;
 };
 
 #endif /* STEPPERMOTOR_H_ */
