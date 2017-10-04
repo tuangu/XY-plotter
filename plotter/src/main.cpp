@@ -6,7 +6,7 @@
 #endif
 #endif
 
-#define DEBUG_XY_
+#define USING_USB_CDC   0
 
 #include <cr_section_macros.h>
 
@@ -17,6 +17,7 @@
 #include "task.h"
 #include "queue.h"
 
+#include "SerialLog.h"
 #include "GParser.h"
 #include "Laser.h"
 #include "Servo.h"
@@ -30,13 +31,12 @@ void vReceiveTask(void *vParameters);
 void vExecuteTask(void *vParameters);
 void vCalibrateTask(void *vParameters);
 
-/* Motor */
+
 StepperMotor *xmotor;
 StepperMotor *ymotor;
-
-/* Pen */
 Servo *pen;
 
+SerialLog debugSerial;
 QueueHandle_t qCommand;
 
 int main(void) {
@@ -58,9 +58,10 @@ int main(void) {
     xTaskCreate(vCalibrateTask, "Calibrate Task", configMINIMAL_STACK_SIZE,
             NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
 
+#if USING_USB_CDC
     xTaskCreate(cdc_task, "CDC Task", configMINIMAL_STACK_SIZE * 2, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
-
+#endif
     vTaskStartScheduler();
 
     while (1)
@@ -89,7 +90,8 @@ void vReceiveTask(void *vParameters) {
 
     while (1) {
         /* get GCode from mDraw */
-        char buffer[RCV_BUFSIZE];
+#if USING_USB_CDC
+        char buffer[RCV_BUFSIZE] = {'0'};
         int idx = 0;
         while (1) {
             int len = USB_receive((uint8_t *) (buffer + idx), RCV_BUFSIZE);
@@ -101,6 +103,19 @@ void vReceiveTask(void *vParameters) {
 
             idx += len;
         }
+
+        debugSerial.write(buffer);
+        debugSerial.write((char *) "\r");
+#else   // use usb debug
+        char buffer[32] = {'0'};
+        int idx = 0;
+        int c;
+        while ((c = debugSerial.read()) != EOF) {
+            buffer[idx++] = c;
+            if (c == '\n')
+                break;
+        }
+#endif
 
         /* parse GCode */
         Command gcode = parser.parse(buffer, strlen(buffer));

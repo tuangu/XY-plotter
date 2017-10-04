@@ -97,11 +97,9 @@ bool StepperMotor::irqHandler() {
             stepPin.write(stepValue);
             stepValue = !stepValue;
 
-#ifdef DEBUG_XY
-            if ((Timer_count % 100) == 0) {
+            if ((Timer_count % 100) == 0) { // for debugging
                 Board_LED_Toggle(2);
             }
-#endif
         }
 
     } else {
