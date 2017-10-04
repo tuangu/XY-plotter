@@ -12,7 +12,7 @@ DigitalIoPin::DigitalIoPin(int port_, int pin_, pinMode mode, bool invert) :
         port(port_), pin(pin_) {
     if (mode == output) {
         Chip_IOCON_PinMuxSet(LPC_IOCON, port, pin,
-                IOCON_MODE_INACT | IOCON_DIGMODE_EN);
+        IOCON_MODE_INACT | IOCON_DIGMODE_EN);
         Chip_GPIO_SetPinDIROutput(LPC_GPIO, port, pin);
     } else {
         uint32_t pm = IOCON_DIGMODE_EN;
@@ -32,8 +32,8 @@ DigitalIoPin::DigitalIoPin(int port_, int pin_, pinMode mode, bool invert) :
 }
 
 DigitalIoPin::DigitalIoPin(DigitalIoPin &rhs) {
-	rhs.pin = this->pin;
-	rhs.port = this->port;
+    rhs.pin = this->pin;
+    rhs.port = this->port;
 }
 
 DigitalIoPin::~DigitalIoPin() {

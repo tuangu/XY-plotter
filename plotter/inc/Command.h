@@ -14,7 +14,7 @@ struct Command {
     };
 
     CType type;
-    float params[6] = {0};
+    float params[6] = { 0 };
 };
 
 #endif /* COMMAND_H_ */

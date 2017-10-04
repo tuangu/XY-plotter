@@ -1,15 +1,23 @@
-#include "FreeRTOS.h"
 #include <StepperMotor.h>
-#include <stdlib.h>
+
+
 #include "chip.h"
 #include "DigitalIoPin.h"
+
+#include <stdlib.h>
+
+#include "FreeRTOS.h"
 #include "semphr.h"
+#include "task.h"
 
-StepperMotor::StepperMotor(LPC_SCT_T *timer_, int rpm_, int mPort, int mPin, int dPort, int dPin):
-    stepPin(mPort, mPin, DigitalIoPin::output, false), dirPin(dPort, dPin, DigitalIoPin::output, false){
-    this->timer = timer_;
-
-	/* Select timer, irq handler*/
+StepperMotor::StepperMotor(LPC_SCT_T *timer_, float rpm_, int mPort, int mPin,
+        int dPort, int dPin, int lMinPort, int lMinPin, int lMaxPort,
+        int lMaxPin) :
+        timer(timer_), stepPin(mPort, mPin, DigitalIoPin::output, false),
+        dirPin( dPort, dPin, DigitalIoPin::output, false),
+        limitMin(lMinPort, lMinPin, DigitalIoPin::pullup, true),
+        limitMax(lMaxPort, lMaxPin, DigitalIoPin::pullup, true) {
+    /* Select timer, irq handler*/
     if (timer_ == LPC_SCT2) {
         this->irq = SCT2_IRQn;
         this->base = 380;
@@ -18,47 +26,54 @@ StepperMotor::StepperMotor(LPC_SCT_T *timer_, int rpm_, int mPort, int mPin, int
         this->base = 310;
     }
 
-    /* Speed */
     this->rpm = (rpm_ > 0) ? rpm_ : 60;
-
-    /* Binary semaphore */
     this->sbTimer = xSemaphoreCreateBinary();
 
-    /* Hardware setup */
+    dirPin.write(direction);
     Chip_SCT_Init(timer);
-    timer->CONFIG |= (1 << 0) | (1 << 17);  // 32-bit timer, auto limit
-    timer->CTRL_U |= (0 << 5);              // set prescaler = 1, % Timer freq = 72 Mhz
 }
 
 StepperMotor::~StepperMotor() {
 }
 
 void StepperMotor::move(float newPos) {
-	float distance = abs(newPos - currentPosition);
-	if(newPos - currentPosition < 0){
-		diretion = !diretion;
-	}
-	totalStep = base/distance;
-	Timer_start(totalStep);
+    // STEPS_PER_MM  = 87.58
+
+    float distance = newPos - currentPosition;
+
+    if (distance < 0)
+        direction = motorToOrigin;
+    else
+        direction = !motorToOrigin;
+    dirPin.write(direction);
+
+    int moveCount = 2 * abs(distance) * totalStep / base;
+    Timer_start(moveCount); // A low-to-high transition on the STEP advances the motor one increment.
+
+    // TODO Rounding error
+
+    currentPosition = newPos;
 }
 
 void StepperMotor::Timer_start(int count) {
-    uint64_t cmpValue = Chip_Clock_GetSystemClockRate() * 60 / (rpm * motorPulsePerRevolution);
+    uint64_t cmpValue = 1000000 * 60 / (rpm * motorPulsePerRevolution);
 
     NVIC_DisableIRQ(irq);
+
     Timer_count = count;
 
-    timer->COUNT_U 			= (1 << 3);		// clear the unified counter
-    timer->MATCHREL[0].U    = cmpValue;		// set value of match 0
+    timer->CONFIG |= (1 << 0) | (1 << 17);  // 32-bit timer, auto limit
+    timer->CTRL_U |= (71 << 5);             // set prescaler = 72, % Timer freq = 1 Mhz
+    timer->MATCHREL[0].U = cmpValue;        // set value of match 0
 
-    timer->EVENT[0].STATE   = 0xFFFFFFFF;	// event 0 happens in all states
-    timer->EVENT[0].CTRL    = (1 << 12);	// match 0 condition only
+    timer->EVENT[0].STATE = 0xFFFFFFFF;     // event 0 happens in all states
+    timer->EVENT[0].CTRL = (1 << 12);       // match 0 condition only
 
-    timer->EVEN             = (1 << 0);     // event 0 generates an interrupt
+    timer->EVEN = (1 << 0);                 // event 0 generates an interrupt
 
     NVIC_EnableIRQ(irq);
 
-    timer->CTRL_U           &= ~(1 << 2);   // unhalt by clearing bit 2
+    timer->CTRL_U &= ~(1 << 2);             // unhalt by clearing bit 2
 
     // Wait for ISR
     if (xSemaphoreTake(sbTimer, portMAX_DELAY) == pdTRUE) {
@@ -67,43 +82,82 @@ void StepperMotor::Timer_start(int count) {
 }
 
 bool StepperMotor::irqHandler() {
-	portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+    portBASE_TYPE xHigherPriorityWoken = pdFALSE;
 
-	if (Timer_count > 0) {
-		Timer_count--;
+    if (Timer_count > 0) {
+        Timer_count--;
 
-		// TODO Handle limit switches
+        bool lmin = limitMin.read() && (direction == motorToOrigin);
+        bool lmax = limitMin.read() && (direction != motorToOrigin);
 
-		stepPin.write(stepValue);
-		stepValue = !stepValue;
+        if (lmin || lmax) { // hit a limit switch
+            timer->CTRL_U = (1 << 2);       // halt by setting bit 2
+            xSemaphoreGiveFromISR(sbTimer, &xHigherPriorityWoken);
+        } else {
+            stepPin.write(stepValue);
+            stepValue = !stepValue;
 
 #ifdef DEBUG_XY
-        if ((Timer_count % 100) == 0) {
-            Board_LED_Toggle(2);
-        }
+            if ((Timer_count % 100) == 0) {
+                Board_LED_Toggle(2);
+            }
 #endif
+        }
 
-	} else {
-		timer->CTRL_U 		= (1 << 2);		// halt by setting bit 2
-		xSemaphoreGiveFromISR(sbTimer, &xHigherPriorityWoken);
-	}
+    } else {
+        timer->CTRL_U = (1 << 2);		// halt by setting bit 2
+        xSemaphoreGiveFromISR(sbTimer, &xHigherPriorityWoken);
+    }
 
-	return xHigherPriorityWoken;
+    return xHigherPriorityWoken;
+}
+
+void StepperMotor::calibrate() {
+    dirPin.write(motorToOrigin);
+    bool stepValue = false;
+    while (!limitMin.read() || !limitMax.read()) {
+        stepPin.write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    dirPin.write(!motorToOrigin);
+    stepValue = false;
+    int stepCountForward = 0;
+    while (!limitMin.read() || !limitMax.read()) {
+        stepCountForward++;
+        stepPin.write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    dirPin.write(motorToOrigin);
+    stepValue = false;
+    int stepCountBackward = 0;
+    while (!limitMin.read() || !limitMax.read()) {
+        stepCountForward++;
+        stepPin.write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    totalStep = (stepCountBackward + stepCountForward) / 4;
+    currentPosition = 0;
 }
 
 void StepperMotor::setTotalStep(int steps) {
-	totalStep = steps;
+    totalStep = steps;
 }
 
 int StepperMotor::getRpm() {
     return rpm;
 }
 
-void StepperMotor::setRpm(int rpm) {
+void StepperMotor::setRpm(float rpm) {
     if (rpm > 0)
         this->rpm = rpm;
 }
 
-void StepperMotor::setCurrentPosition(float newPos) {
-	currentPosition = newPos;
+float StepperMotor::getCurrentPosition() {
+    return currentPosition;
 }

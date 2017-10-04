@@ -8,20 +8,18 @@
 #include <usb_cdc/Fmutex.h>
 
 Fmutex::Fmutex() {
-	// TODO Auto-generated constructor stub
-	mutex = xSemaphoreCreateMutex();
+    // TODO Auto-generated constructor stub
+    mutex = xSemaphoreCreateMutex();
 }
 
 Fmutex::~Fmutex() {
-	// TODO Auto-generated destructor stub
+    // TODO Auto-generated destructor stub
 }
 
-void Fmutex::lock()
-{
-	xSemaphoreTake(mutex, portMAX_DELAY);
+void Fmutex::lock() {
+    xSemaphoreTake(mutex, portMAX_DELAY);
 }
 
-void Fmutex::unlock()
-{
-	xSemaphoreGive(mutex);
+void Fmutex::unlock() {
+    xSemaphoreGive(mutex);
 }

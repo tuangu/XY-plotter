@@ -35,8 +35,7 @@
 #include <usb_cdc/app_usbd_cfg.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /** @ingroup EXAMPLES_USBDROM_15XX_CDC
@@ -55,13 +54,13 @@ extern "C"
  * Structure containing Virtual Comm port control data
  */
 typedef struct VCOM_DATA {
-	USBD_HANDLE_T hUsb;
-	USBD_HANDLE_T hCdc;
-	uint8_t *rx_buff;
-	uint16_t rx_rd_count;
-	uint16_t rx_count;
-	volatile uint16_t tx_flags;
-	volatile uint16_t rx_flags;
+    USBD_HANDLE_T hUsb;
+    USBD_HANDLE_T hCdc;
+    uint8_t *rx_buff;
+    uint16_t rx_rd_count;
+    uint16_t rx_count;
+    volatile uint16_t tx_flags;
+    volatile uint16_t rx_flags;
 } VCOM_DATA_T;
 
 /**
@@ -76,7 +75,8 @@ extern VCOM_DATA_T g_vCOM;
  * @param	pUsbParam	: Pointer USB param structure returned by previous init call
  * @return	Always returns LPC_OK.
  */
-ErrorCode_t vcom_init (USBD_HANDLE_T hUsb, USB_CORE_DESCS_T *pDesc, USBD_API_INIT_PARAM_T *pUsbParam);
+ErrorCode_t vcom_init(USBD_HANDLE_T hUsb, USB_CORE_DESCS_T *pDesc,
+        USBD_API_INIT_PARAM_T *pUsbParam);
 
 /**
  * @brief	Virtual com port buffered read routine
@@ -84,7 +84,7 @@ ErrorCode_t vcom_init (USBD_HANDLE_T hUsb, USB_CORE_DESCS_T *pDesc, USBD_API_INI
  * @param	buf_len	: Length of the buffer passed
  * @return	Return number of bytes read.
  */
-uint32_t vcom_bread (uint8_t *pBuf, uint32_t buf_len);
+uint32_t vcom_bread(uint8_t *pBuf, uint32_t buf_len);
 
 /**
  * @brief	Virtual com port read routine
@@ -92,7 +92,7 @@ uint32_t vcom_bread (uint8_t *pBuf, uint32_t buf_len);
  * @param	buf_len	: Length of the buffer passed
  * @return	Always returns LPC_OK.
  */
-ErrorCode_t vcom_read_req (uint8_t *pBuf, uint32_t buf_len);
+ErrorCode_t vcom_read_req(uint8_t *pBuf, uint32_t buf_len);
 
 /**
  * @brief	Gets current read count.
@@ -105,7 +105,7 @@ uint32_t vcom_read_cnt(void);
  * @return	Returns non-zero value if connected.
  */
 static INLINE uint32_t vcom_connected(void) {
-	return g_vCOM.tx_flags & VCOM_TX_CONNECTED;
+    return g_vCOM.tx_flags & VCOM_TX_CONNECTED;
 }
 
 /**
@@ -114,7 +114,7 @@ static INLINE uint32_t vcom_connected(void) {
  * @param	buf_len	: Length of the buffer passed
  * @return	Number of bytes written
  */
-uint32_t vcom_write (uint8_t *pBuf, uint32_t buf_len);
+uint32_t vcom_write(uint8_t *pBuf, uint32_t buf_len);
 
 /**
  * @}

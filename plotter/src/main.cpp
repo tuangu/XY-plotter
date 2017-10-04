@@ -6,7 +6,7 @@
 #endif
 #endif
 
-#define DEBUG_XY
+#define DEBUG_XY_
 
 #include <cr_section_macros.h>
 
@@ -22,8 +22,6 @@
 #include "Servo.h"
 #include "StepperMotor.h"
 #include "Command.h"
-
-
 
 void setupHardware();
 
@@ -45,20 +43,23 @@ int main(void) {
 
     setupHardware();
 
+
+
+    pen = new Servo();
+
     qCommand = xQueueCreate(10, sizeof(Command));
 
-    xTaskCreate(vReceiveTask, "Receive Task", configMINIMAL_STACK_SIZE,
-                NULL, (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
+    xTaskCreate(vReceiveTask, "Receive Task", configMINIMAL_STACK_SIZE, NULL,
+            (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
-    xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE,
-                NULL, (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
+    xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE, NULL,
+            (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(vCalibrateTask, "Calibrate Task", configMINIMAL_STACK_SIZE,
-    			NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
+            NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(cdc_task, "CDC Task", configMINIMAL_STACK_SIZE * 2, NULL,
-                (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
-
+            (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
     vTaskStartScheduler();
 
@@ -78,78 +79,92 @@ void setupHardware() {
 /***** Task Definition *****/
 
 void vCalibrateTask(void *vParameters) {
-
+    xmotor->calibrate();
+    ymotor->calibrate();
+    vTaskDelete(NULL);
 }
 
 void vReceiveTask(void *vParameters) {
-	GParser parser;
+    GParser parser;
 
     while (1) {
-    	/* get GCode from mDraw */
-    	char buffer[RCV_BUFSIZE];
-    	int idx = 0;
-    	while (1) {
-    		int len = USB_receive((uint8_t *) (buffer + idx), RCV_BUFSIZE);
+        /* get GCode from mDraw */
+        char buffer[RCV_BUFSIZE];
+        int idx = 0;
+        while (1) {
+            int len = USB_receive((uint8_t *) (buffer + idx), RCV_BUFSIZE);
 
-    		char *pos = strstr((buffer + idx), "\n");	// find '\n' <=> end of command
+            char *pos = strstr((buffer + idx), "\n");// find '\n' <=> end of command
 
-    		if (pos != NULL)
-    			break;
+            if (pos != NULL)
+                break;
 
-    		idx += len;
-    	}
+            idx += len;
+        }
 
-    	/* parse GCode */
-    	Command gcode = parser.parse(buffer, strlen(buffer));
+        /* parse GCode */
+        Command gcode = parser.parse(buffer, strlen(buffer));
 
-    	/* send commands into queue */
-    	xQueueSendToBack(qCommand, &gcode, portMAX_DELAY);
+        /* send commands into queue */
+        xQueueSendToBack(qCommand, &gcode, portMAX_DELAY);
     }
 }
 
 void vExecuteTask(void *vParameters) {
 
-	Command recv;
+    Command recv;
 
     while (1) {
-    	/* wait for commands from queue */
-    	xQueueReceive(qCommand, &recv, portMAX_DELAY);
+        /* wait for commands from queue */
+        xQueueReceive(qCommand, &recv, portMAX_DELAY);
 
-    	/* do something useful*/
-    	switch (recv.type) {
-    	case Command::connected:
-    		// ignore
-    		break;
-    	case Command::laser:
-    		// TODO laser
+        /* do something useful*/
+        switch (recv.type) {
+        case Command::connected:
+            // ignore
+            break;
+        case Command::laser:
+            // TODO laser
 
-    		break;
-    	case Command::move:
-    		/* calculate new rpm*/
+            break;
+        case Command::move:
+            /* calculate new rpm*/
+            {
+                float deltaX = recv.params[0] - xmotor->getCurrentPosition();
+                float deltaY = recv.params[1] - ymotor->getCurrentPosition();
 
-    		/* move */
+                float rpmX = abs(deltaX / deltaY) * motorBaseRpm;
+                xmotor->setRpm(rpmX);
+                ymotor->setRpm(motorBaseRpm);
+            }
+            /* move */
+            xmotor->move(recv.params[0]);
+            ymotor->move(recv.params[1]);
 
-    		break;
-    	case Command::pen_position:
-    		pen->moveServo(recv.params[0]);
-    		break;
-    	case Command::pen_setting:
-    		// ignore
-    		break;
-    	case Command::plotter_setting:
-    		// ignore
-    		break;
-    	case Command::to_origin:
-    		xmotor->setRpm(60);
-    		ymotor->setRpm(60);
-    		xmotor->move(0);
-    		ymotor->move(0);
-    		break;
-    	default:
-    		break;
-    	}
+            break;
+        case Command::pen_position:
+            pen->moveServo(recv.params[0]);
+            break;
+        case Command::pen_setting:
+            // ignore
+            break;
+        case Command::plotter_setting:
+            // ignore
+            break;
+        case Command::to_origin:
+            xmotor->setRpm(60);
+            ymotor->setRpm(60);
+            xmotor->move(0);
+            ymotor->move(0);
+            break;
+        case Command::invalid:
+        default:
+            break;
+        }
 
-    	/* send 'OK' back to mDraw */
+        /* send 'OK' back to mDraw */
+        char message[] = "OK\n";
+        USB_send((uint8_t *) message, 4);
 
     }
 }
@@ -159,12 +174,12 @@ extern "C" {
 
 /* X axis motor */
 void SCT2_IRQHandler(void) {
-	portEND_SWITCHING_ISR(xmotor->irqHandler());
+    portEND_SWITCHING_ISR(xmotor->irqHandler());
 }
 
 /* Y axis motor */
 void SCT3_IRQHandler(void) {
-	portEND_SWITCHING_ISR(ymotor->irqHandler());
+    portEND_SWITCHING_ISR(ymotor->irqHandler());
 }
 
 void vConfigureTimerForRunTimeStats(void) {

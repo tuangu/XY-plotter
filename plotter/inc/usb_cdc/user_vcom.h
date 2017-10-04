@@ -16,13 +16,11 @@
 /* size of receive buffers */
 #define RCV_BUFSIZE 64
 
-
 /* this is needed to start CDC USB task. Since CDC functions are written in C we need
  * extern "C" - declaration to tell C++ compiler to use C naming convention for this function.
  */
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /* Virtual com port main task */
@@ -40,6 +38,5 @@ uint32_t USB_receive(uint8_t *data, uint32_t length);
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif /* USER_VCOM_H_ */

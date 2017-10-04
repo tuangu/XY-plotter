@@ -1,11 +1,10 @@
 #ifndef STEPPERMOTOR_H_
 #define STEPPERMOTOR_H_
 
-#include "FreeRTOS.h"
-#include "DigitalIopin.h"
-#include "timers.h"
 #include "chip.h"
-#include "DigitalIoPin.h"
+#include "DigitalIopin.h"
+
+#include "FreeRTOS.h"
 #include "semphr.h"
 
 /* XY Plotter */
@@ -20,36 +19,51 @@
 #define motorYDirPin    0
 
 #define motorPulsePerRevolution 400
-#define motorLEFT       1
-#define motorRIGHT      0
+#define motorBaseRpm    60
+#define motorToOrigin   1
+
+/* Limit switches */
+#define limitXMinPort   0
+#define limitXMinPin    29
+#define limitXMaxPort   0
+#define limitXMaxPin    9
+
+#define limitYMinPort   1
+#define limitYMinPin    3
+#define limitYMaxPort   0
+#define limitYMaxPin    0
 
 class StepperMotor {
 public:
-    StepperMotor(LPC_SCT_T *timer_, int rpm_, int mPort, int mPin, int dPort, int dPin);
+    StepperMotor(LPC_SCT_T *timer_, float rpm_, int mPort, int mPin, int dPort,
+            int dPin, int lMinPort, int lMinPin, int lMaxPort, int lMaxPin);
     virtual ~StepperMotor();
 
     void setTotalStep(int steps);
     int getRpm();
-    void setRpm(int rpm);
-    void setCurrentPosition(float newPos);
+    void setRpm(float rpm);
+    float getCurrentPosition();
 
     void move(float newPos);
     void Timer_start(int count);
     bool irqHandler();
+    void calibrate(); // should be called once, right after object creation
 private:
     SemaphoreHandle_t sbTimer;
 
     LPC_SCT_T *timer;
     IRQn_Type irq;
     int Timer_count;
-    int rpm;
+    float rpm;
     int totalStep;
 
     DigitalIoPin stepPin;
     DigitalIoPin dirPin;
+    DigitalIoPin limitMin;
+    DigitalIoPin limitMax;
 
     bool stepValue = false;
-    bool diretion = false;
+    bool direction = motorToOrigin;
     float currentPosition;
     float base;
 };

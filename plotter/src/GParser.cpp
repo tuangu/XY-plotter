@@ -17,14 +17,14 @@ Command GParser::parse(char *instruction, int len) {
         int code = strtol(instruction + 1, NULL, 10);
 
         switch (code) {
-        case 1  :
+        case 1:
             ret.type = Command::move;
             ret.params[0] = findParam('X', instruction, len);
             ret.params[1] = findParam('Y', instruction, len);
             ret.params[2] = findParam('A', instruction, len);
 
             break;
-        case 28 :
+        case 28:
             ret.type = Command::to_origin;
 
             break;
@@ -36,23 +36,23 @@ Command GParser::parse(char *instruction, int len) {
         int code = strtol(instruction + 1, NULL, 10);
 
         switch (code) {
-        case 1  :
+        case 1:
             ret.type = Command::pen_position;
             ret.params[0] = strtol(instruction + 2, NULL, 10);
 
             break;
-        case 2  :
+        case 2:
             ret.type = Command::pen_setting;
             ret.params[0] = findParam('U', instruction, len);
             ret.params[1] = findParam('D', instruction, len);
 
             break;
-        case 4  :
+        case 4:
             ret.type = Command::laser;
             ret.params[0] = strtol(instruction + 2, NULL, 10);
 
             break;
-        case 5  :
+        case 5:
             ret.type = Command::plotter_setting;
             ret.params[0] = findParam('A', instruction, len);
             ret.params[1] = findParam('B', instruction, len);
@@ -61,7 +61,7 @@ Command GParser::parse(char *instruction, int len) {
             ret.params[4] = findParam('S', instruction, len);
 
             break;
-        case 10 :
+        case 10:
             ret.type = Command::connected;
 
             break;
