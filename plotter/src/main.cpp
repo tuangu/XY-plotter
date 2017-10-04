@@ -43,16 +43,14 @@ int main(void) {
 
     setupHardware();
 
-
-
     pen = new Servo();
 
     qCommand = xQueueCreate(10, sizeof(Command));
 
-    xTaskCreate(vReceiveTask, "Receive Task", configMINIMAL_STACK_SIZE, NULL,
+    xTaskCreate(vReceiveTask, "Receive Task", configMINIMAL_STACK_SIZE * 3, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
-    xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE, NULL,
+    xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE * 3, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(vCalibrateTask, "Calibrate Task", configMINIMAL_STACK_SIZE,
@@ -73,6 +71,8 @@ int main(void) {
 void setupHardware() {
     SystemCoreClockUpdate();
     Board_Init();
+
+    ITM_init();
 
     Board_LED_Set(0, false);
 }
@@ -110,11 +110,14 @@ void vReceiveTask(void *vParameters) {
         char buffer[32] = {'0'};
         int idx = 0;
         int c;
-        while ((c = debugSerial.read()) != EOF) {
-            buffer[idx++] = c;
-            if (c == '\n')
-                break;
+        while (idx < 32) {
+            if ((c = debugSerial.read()) != EOF) {
+                buffer[idx++] = c;
+                if (c == '\n')
+                    break;
+            }
         }
+        ITM_write(buffer);
 #endif
 
         /* parse GCode */
@@ -136,7 +139,7 @@ void vExecuteTask(void *vParameters) {
         /* do something useful*/
         switch (recv.type) {
         case Command::connected:
-            // ignore
+            debugSerial.write("M10 XY 380 310 0.00 0.00 A0 B0 H0 S80 U160 D90 \n");
             break;
         case Command::laser:
             // TODO laser
@@ -178,8 +181,11 @@ void vExecuteTask(void *vParameters) {
         }
 
         /* send 'OK' back to mDraw */
-        char message[] = "OK\n";
+#if USING_USB_CDC
         USB_send((uint8_t *) message, 4);
+#else
+        debugSerial.write("OK\n");
+#endif
 
     }
 }
