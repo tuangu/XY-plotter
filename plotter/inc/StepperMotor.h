@@ -1,19 +1,8 @@
 #ifndef STEPPERMOTOR_H_
 #define STEPPERMOTOR_H_
-<<<<<<< HEAD
+
 #include "DigitalIopin.h"
-#include "timers.c"
-
-class StepperMotor {
-private:
-	DigitalIoPin xMotor;
-	DigitalIoPin xDir;
-	DigitalIoPin yMotor;
-	DigitalIoPin yDir;
-
-
-=======
-
+#include "timers.h"
 #include "chip.h"
 #include "DigitalIoPin.h"
 
@@ -35,7 +24,6 @@ private:
 #define motorRIGHT      0
 
 class StepperMotor {
->>>>>>> refs/remotes/origin/motor-dev
 public:
     StepperMotor(LPC_SCT_T *timer_, int rpm_, short mPort, short mPin, short dPort, short dPin);
     virtual ~StepperMotor();
@@ -46,7 +34,7 @@ public:
     void setCurrentPosition(float newPos);
 
     void move(float newPos);
-    void Timer_start(int count, int us);
+    void Timer_start(int count);
     bool irqHandler();
 private:
     SemaphoreHandle_t sbTimer;

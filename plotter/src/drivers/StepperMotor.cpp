@@ -5,6 +5,7 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include <stdlib.h>
 
 StepperMotor::StepperMotor(LPC_SCT_T *timer_, int rpm_, short mPort, short mPin, short dPort, short dPin):
         timer(timer_) {
@@ -104,7 +105,7 @@ int StepperMotor::getRpm() {
 }
 
 void StepperMotor::setRpm(int rpm) {
-    if (rmp > 0)
+    if (rpm > 0)
         this->rpm = rpm;
 }
 
