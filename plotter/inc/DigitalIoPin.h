@@ -14,6 +14,7 @@ public:
         output, input, pullup, pulldown
     };
     DigitalIoPin(int port, int pin, pinMode mode, bool invert = false);
+    DigitalIoPin(DigitalIoPin &rhs);
     virtual ~DigitalIoPin();
     virtual bool read();
     void write(bool value);
