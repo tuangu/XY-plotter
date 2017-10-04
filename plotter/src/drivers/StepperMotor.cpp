@@ -39,7 +39,7 @@ void StepperMotor::move(float newPos) {
 
 }
 
-void StepperMotor::Timer_start(int count, int us) {
+void StepperMotor::Timer_start(int count) {
     uint64_t cmpValue = Chip_Clock_GetSystemClockRate() * 60 / (rpm * motorPulsePerRevolution);
 
     NVIC_DisableIRQ(irq);
