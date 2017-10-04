@@ -17,7 +17,7 @@ public:
     Command parse(char *instruction, int len);
 
 private:
-    float GParser::findParam(char key, char *instruction, int len);
+    float findParam(char key, char *instruction, int len);
 };
 
 #endif /* GPARSER_H_ */
