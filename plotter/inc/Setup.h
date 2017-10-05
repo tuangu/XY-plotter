@@ -8,8 +8,12 @@
 #ifndef SETUP_H_
 #define SETUP_H_
 
-
-
-
+struct Setup {
+	float pen_up;
+	float pen_down;
+	float speed;
+	float last_x_pos;
+	float last_y_pos;
+};
 
 #endif /* SETUP_H_ */
