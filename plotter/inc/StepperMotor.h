@@ -6,6 +6,7 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "event_groups.h"
 
 /* XY Plotter */
 #define motorXPort      0
@@ -20,7 +21,6 @@
 
 #define motorPulsePerRevolution 400
 #define motorBaseRpm    60
-#define motorToOrigin   1
 
 /* Limit switches */
 #define limitXMinPort   0
@@ -33,26 +33,31 @@
 #define limitYMaxPort   0
 #define limitYMaxPin    0
 
+/* Events */
+#define motorEventX     (1 << 0)
+#define motorEventY     (1 << 1)
+
 class StepperMotor {
 public:
     StepperMotor(LPC_SCT_T *timer_, float rpm_, int mPort, int mPin, int dPort,
-            int dPin, int lMinPort, int lMinPin, int lMaxPort, int lMaxPin);
+            int dPin, int lMinPort, int lMinPin, int lMaxPort, int lMaxPin,
+            EventGroupHandle_t *eMotor, EventBits_t bitToSet);
     virtual ~StepperMotor();
 
     void setTotalStep(int steps);
     int getRpm();
     void setRpm(float rpm);
-    float getCurrentPosition();
+    int getMoveCount(float newPos);
 
     void move(float newPos);
     void Timer_start(int count);
     bool irqHandler();
     void calibrate(); // should be called once, right after object creation
 private:
-    SemaphoreHandle_t sbTimer;
-
     LPC_SCT_T *timer;
     IRQn_Type irq;
+    EventGroupHandle_t *eMotor;
+    EventBits_t bitToSet;
     int Timer_count;
     float rpm;
     int totalStep;
@@ -66,6 +71,8 @@ private:
     bool direction = motorToOrigin;
     float currentPosition;
     float base;
+
+    bool motorToOrigin = 1;
 };
 
 #endif /* STEPPERMOTOR_H_ */
