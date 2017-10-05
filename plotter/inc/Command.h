@@ -3,13 +3,14 @@
 
 struct Command {
     enum CType {
-        pen_position, // M1
-        pen_setting, // M2
-        laser, // M4
-        plotter_setting, // M5
-        connected, // M10
-        move, // G1
-        to_origin, // G28
+        pen_position,       // M1
+        pen_setting,        // M2
+        laser,              // M4
+        plotter_setting,    // M5
+        connected,          // M10
+        done,               // M11
+        move,               // G1
+        to_origin,          // G28
         invalid
     };
 
