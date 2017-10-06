@@ -1,6 +1,7 @@
 #include <GParser.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 GParser::GParser() {
 }
@@ -12,16 +13,18 @@ Command GParser::parse(char *instruction, int len) {
     Command ret;
     ret.type = Command::invalid;
 
-    if (instruction[0] == 'G') {
+    char *result;
 
-        int code = strtol(instruction + 1, NULL, 10);
+    if ((result = strchr(instruction, 'G')) != NULL ) {
+
+        int code = strtol(result + 1, NULL, 10);
 
         switch (code) {
         case 1:
             ret.type = Command::move;
-            ret.params[0] = findParam('X', instruction, len);
-            ret.params[1] = findParam('Y', instruction, len);
-            ret.params[2] = findParam('A', instruction, len);
+            ret.params[0] = findParam('X', result, len);
+            ret.params[1] = findParam('Y', result, len);
+            ret.params[2] = findParam('A', result, len);
 
             break;
         case 28:
@@ -31,34 +34,34 @@ Command GParser::parse(char *instruction, int len) {
         default:
             break;
         }
-    } else if (instruction[0] == 'M') {
+    } else if ((result = strchr(instruction, 'M')) != NULL) {
 
-        int code = strtol(instruction + 1, NULL, 10);
+        int code = strtol(result + 1, NULL, 10);
 
         switch (code) {
         case 1:
             ret.type = Command::pen_position;
-            ret.params[0] = strtol(instruction + 2, NULL, 10);
+            ret.params[0] = strtol(result + 2, NULL, 10);
 
             break;
         case 2:
             ret.type = Command::pen_setting;
-            ret.params[0] = findParam('U', instruction, len);
-            ret.params[1] = findParam('D', instruction, len);
+            ret.params[0] = findParam('U', result, len);
+            ret.params[1] = findParam('D', result, len);
 
             break;
         case 4:
             ret.type = Command::laser;
-            ret.params[0] = strtol(instruction + 2, NULL, 10);
+            ret.params[0] = strtol(result + 2, NULL, 10);
 
             break;
         case 5:
             ret.type = Command::plotter_setting;
-            ret.params[0] = findParam('A', instruction, len);
-            ret.params[1] = findParam('B', instruction, len);
-            ret.params[2] = findParam('H', instruction, len);
-            ret.params[3] = findParam('W', instruction, len);
-            ret.params[4] = findParam('S', instruction, len);
+            ret.params[0] = findParam('A', result, len);
+            ret.params[1] = findParam('B', result, len);
+            ret.params[2] = findParam('H', result, len);
+            ret.params[3] = findParam('W', result, len);
+            ret.params[4] = findParam('S', result, len);
 
             break;
         case 10:

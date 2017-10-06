@@ -74,7 +74,7 @@ private:
     float currentPosition;
     float base;
 
-    bool motorToOrigin = 1;
+    bool motorToOrigin = 0;
 };
 
 #endif /* STEPPERMOTOR_H_ */

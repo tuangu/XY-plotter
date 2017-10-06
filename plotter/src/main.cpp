@@ -48,7 +48,7 @@ int main(void) {
 
     setupHardware();
 
-    pen = new Servo();
+    pen = new Servo(0, 10);
     laser = new Laser();
     laser->changeLaserPower(0); // drive laser low
 
@@ -88,9 +88,11 @@ void setupHardware() {
 /***** Task Definition *****/
 
 void vCalibrateTask(void *vParameters) {
-    xmotor = new StepperMotor(LPC_SCT2, 60, 0, 24, 1, 0, 0, 27, 0, 28, &eMotor, motorEventX);
+    xmotor = new StepperMotor(LPC_SCT2, 60, motorXPort, motorXPin, motorXDirPort, motorXDirPin,
+    						  limitYMinPort, limitYMinPin, limitYMaxPort, limitYMaxPin, &eMotor, motorEventX);
     xmotor->calibrate();
-    ymotor = new StepperMotor(LPC_SCT3, 60, 0, 9, 0, 29, 1, 9, 1, 10, &eMotor, motorEventY);
+    ymotor = new StepperMotor(LPC_SCT3, 60, motorYPort, motorYPin, motorYDirPort, motorYDirPin,
+			  	  	  	  	  limitXMinPort, limitXMinPin, limitXMaxPort, limitXMaxPin, &eMotor, motorEventY);
     ymotor->calibrate();
 
     XYSetup.last_x_pos = xmotor->getCurrentPos();
@@ -99,7 +101,7 @@ void vCalibrateTask(void *vParameters) {
     XYSetup.length_x = 380; // = 290 if using simulator
     XYSetup.length_y = 310; // = 290 if using simulator
     XYSetup.pen_down = 90;
-    XYSetup.pen_up = 130;
+    XYSetup.pen_up = 20;
 
     xmotor->setBaseLength(XYSetup.length_x);
     ymotor->setBaseLength(XYSetup.length_y);
