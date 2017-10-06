@@ -20,7 +20,7 @@
 #define motorYDirPin    0
 
 #define motorPulsePerRevolution 400
-#define motorBaseRpm    60
+#define motorBaseRpm    120
 
 /* Limit switches */
 #define limitXMinPort   0

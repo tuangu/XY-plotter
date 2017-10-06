@@ -7,8 +7,7 @@
 
 #include <Laser.h>
 
-Laser::Laser() {
-    // TODO Auto-generated constructor stub
+Laser::Laser(int port_, int pin_): port(port_), pin(pin_) {
     Chip_SCT_Init(LPC_SCT1);
     LPC_SCT1->CONFIG |= (1 << 17); // two 16-bit timers, auto limit
     LPC_SCT1->CTRL_L |= (72 - 1) << 5; // set prescaler, SCTimer/PWM clock = 1 MHz
@@ -24,7 +23,7 @@ Laser::Laser() {
 }
 
 Laser::~Laser() {
-    // TODO Auto-generated destructor stub
+
 }
 
 void Laser::changeLaserPower(int pow) {

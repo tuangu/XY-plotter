@@ -37,6 +37,7 @@ void vCalibrateTask(void *vParameters);
 StepperMotor *xmotor;
 StepperMotor *ymotor;
 Servo *pen;
+Laser *laser;
 
 Setup XYSetup;
 SerialLog debugSerial;
@@ -48,6 +49,8 @@ int main(void) {
     setupHardware();
 
     pen = new Servo();
+    laser = new Laser();
+    laser->changeLaserPower(0); // drive laser low
 
     eMotor = xEventGroupCreate();
     qCommand = xQueueCreate(1, sizeof(Command));
@@ -141,9 +144,11 @@ void vReceiveTask(void *vParameters) {
                 buffer[idx] = '\0';
                 ITM_write(buffer);
 
+                /* parse GCode and send it to queue*/
                 Command gcode = parser.parse(buffer, strlen(buffer));
                 xQueueSendToBack(qCommand, &gcode, portMAX_DELAY);
 
+                /* reset buffer */
                 memset(buffer, '\0', 32);
                 idx = 0;
             }
@@ -170,11 +175,12 @@ void vExecuteTask(void *vParameters) {
                 snprintf(buffer, 48, "M10 XY %d %d 0.00 0.00 A0 B0 H0 S%d U%d D%d \n",
                          XYSetup.length_x, XYSetup.length_y, XYSetup.speed, XYSetup.pen_up, XYSetup.pen_down);
                 debugSerial.write(buffer);
+                ITM_write(buffer);
             }
             break;
         case Command::laser:
             // TODO laser
-
+            // laser->changeLaserPower(recv.params[0]);
             break;
         case Command::move:
             /* calculate new rpm*/
@@ -183,14 +189,17 @@ void vExecuteTask(void *vParameters) {
                 float deltaY = ymotor->getMoveCount(recv.params[1]);
 
                 float rpmX = (deltaY > 0) ? fabs(deltaX / deltaY * motorBaseRpm) : motorBaseRpm;
-                xmotor->setRpm(rpmX);
-                ymotor->setRpm(motorBaseRpm);
+                xmotor->setRpm(rpmX * XYSetup.speed / 100);
+                ymotor->setRpm(motorBaseRpm * XYSetup.speed / 100);
             }
             /* move */
             xmotor->move(recv.params[0]);
             ymotor->move(recv.params[1]);
 
             eventBit = xEventGroupWaitBits(eMotor, motorEventX || motorEventY, pdTRUE, pdTRUE, portMAX_DELAY);
+
+            /* delay */
+            vTaskDelay(recv.params[2] / 1000 * configTICK_RATE_HZ);
             break;
         case Command::pen_position:
             pen->moveServo(recv.params[0]);
@@ -200,13 +209,18 @@ void vExecuteTask(void *vParameters) {
             XYSetup.pen_down = recv.params[1];
             break;
         case Command::plotter_setting:
-            // ignore
+            XYSetup.length_y = recv.params[2];
+            XYSetup.length_x = recv.params[3];
+            XYSetup.speed = recv.params[4];
             break;
         case Command::to_origin:
             xmotor->setRpm(60);
             ymotor->setRpm(60);
             xmotor->move(0);
             ymotor->move(0);
+            break;
+        case Command::done:
+            debugSerial.write((char *) "M11 0 0 0 0");
             break;
         case Command::invalid:
         default:
@@ -215,9 +229,10 @@ void vExecuteTask(void *vParameters) {
 
         /* send 'OK' back to mDraw */
 #if USING_USB_CDC
+        char message[] = "OK\n";
         USB_send((uint8_t *) message, 4);
 #else
-        debugSerial.write("OK\n");
+        debugSerial.write((char *) "OK\n");
 #endif
 
     }

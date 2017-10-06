@@ -22,12 +22,12 @@
 
 class Laser {
 public:
-    Laser();
+    Laser(int port = 0, int pin = 12);
     virtual ~Laser();
     void changeLaserPower(int pow);
 private:
-    int port = 0;
-    int pin = 12;
+    int port;
+    int pin;
     int m_pow = 0;
 };
 
