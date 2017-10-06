@@ -37,6 +37,7 @@ void vCalibrateTask(void *vParameters);
 StepperMotor *xmotor;
 StepperMotor *ymotor;
 Servo *pen;
+Laser *laser;
 
 Setup XYSetup;
 SerialLog debugSerial;
@@ -48,6 +49,8 @@ int main(void) {
     setupHardware();
 
     pen = new Servo();
+    laser = new Laser();
+    laser->changeLaserPower(0); // drive laser low
 
     eMotor = xEventGroupCreate();
     qCommand = xQueueCreate(1, sizeof(Command));
@@ -141,9 +144,11 @@ void vReceiveTask(void *vParameters) {
                 buffer[idx] = '\0';
                 ITM_write(buffer);
 
+                /* parse GCode and send it to queue*/
                 Command gcode = parser.parse(buffer, strlen(buffer));
                 xQueueSendToBack(qCommand, &gcode, portMAX_DELAY);
 
+                /* reset buffer */
                 memset(buffer, '\0', 32);
                 idx = 0;
             }
@@ -175,7 +180,7 @@ void vExecuteTask(void *vParameters) {
             break;
         case Command::laser:
             // TODO laser
-
+            // laser->changeLaserPower(recv.params[0]);
             break;
         case Command::move:
             /* calculate new rpm*/
@@ -192,6 +197,9 @@ void vExecuteTask(void *vParameters) {
             ymotor->move(recv.params[1]);
 
             eventBit = xEventGroupWaitBits(eMotor, motorEventX || motorEventY, pdTRUE, pdTRUE, portMAX_DELAY);
+
+            /* delay */
+            vTaskDelay(recv.params[2] / 1000 * configTICK_RATE_HZ);
             break;
         case Command::pen_position:
             pen->moveServo(recv.params[0]);
@@ -212,7 +220,7 @@ void vExecuteTask(void *vParameters) {
             ymotor->move(0);
             break;
         case Command::done:
-            debugSerial.write("M11 0 0 0 0");
+            debugSerial.write((char *) "M11 0 0 0 0");
             break;
         case Command::invalid:
         default:
@@ -221,9 +229,10 @@ void vExecuteTask(void *vParameters) {
 
         /* send 'OK' back to mDraw */
 #if USING_USB_CDC
+        char message[] = "OK\n";
         USB_send((uint8_t *) message, 4);
 #else
-        debugSerial.write("OK\n");
+        debugSerial.write((char *) "OK\n");
 #endif
 
     }
