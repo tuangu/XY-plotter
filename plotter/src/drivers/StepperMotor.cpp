@@ -150,17 +150,17 @@ void StepperMotor::calibrate() {
         vTaskDelay(1);
     }
 
-    /* move the motor off limit switch */
-    dirPin.write(!motorToOrigin);
-    stepValue = false;
-    int offset = 40;
-    while (offset-- > 0) {
-        stepPin.write(stepValue);
-        stepValue = !stepValue;
-        vTaskDelay(1);
-    }
+//    /* move the motor off limit switch */
+//    dirPin.write(!motorToOrigin);
+//    stepValue = false;
+//    int offset = 40;
+//    while (offset-- > 0) {
+//        stepPin.write(stepValue);
+//        stepValue = !stepValue;
+//        vTaskDelay(1);
+//    }
 
-    totalStep = (stepCountBackward + stepCountForward) / 4 - offset;
+    totalStep = (stepCountBackward + stepCountForward) / 4; // - offset;
     currentPosition = 0;
 }
 

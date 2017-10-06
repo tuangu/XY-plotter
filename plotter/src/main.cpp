@@ -170,6 +170,7 @@ void vExecuteTask(void *vParameters) {
                 snprintf(buffer, 48, "M10 XY %d %d 0.00 0.00 A0 B0 H0 S%d U%d D%d \n",
                          XYSetup.length_x, XYSetup.length_y, XYSetup.speed, XYSetup.pen_up, XYSetup.pen_down);
                 debugSerial.write(buffer);
+                ITM_write(buffer);
             }
             break;
         case Command::laser:
@@ -183,8 +184,8 @@ void vExecuteTask(void *vParameters) {
                 float deltaY = ymotor->getMoveCount(recv.params[1]);
 
                 float rpmX = (deltaY > 0) ? fabs(deltaX / deltaY * motorBaseRpm) : motorBaseRpm;
-                xmotor->setRpm(rpmX);
-                ymotor->setRpm(motorBaseRpm);
+                xmotor->setRpm(rpmX * XYSetup.speed / 100);
+                ymotor->setRpm(motorBaseRpm * XYSetup.speed / 100);
             }
             /* move */
             xmotor->move(recv.params[0]);
@@ -200,13 +201,18 @@ void vExecuteTask(void *vParameters) {
             XYSetup.pen_down = recv.params[1];
             break;
         case Command::plotter_setting:
-            // ignore
+            XYSetup.length_y = recv.params[2];
+            XYSetup.length_x = recv.params[3];
+            XYSetup.speed = recv.params[4];
             break;
         case Command::to_origin:
             xmotor->setRpm(60);
             ymotor->setRpm(60);
             xmotor->move(0);
             ymotor->move(0);
+            break;
+        case Command::done:
+            debugSerial.write("M11 0 0 0 0");
             break;
         case Command::invalid:
         default:

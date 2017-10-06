@@ -66,7 +66,7 @@ Command GParser::parse(char *instruction, int len) {
 
             break;
         case 11:
-            // Ignore
+            ret.type = Command::done;
         default:
             break;
         }
