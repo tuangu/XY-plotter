@@ -48,6 +48,8 @@ public:
     int getRpm();
     void setRpm(float rpm);
     int getMoveCount(float newPos);
+    float getCurrentPos();
+    void setBaseLength(int base);
 
     void move(float newPos);
     void Timer_start(int count);

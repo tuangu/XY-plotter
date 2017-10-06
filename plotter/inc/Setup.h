@@ -9,11 +9,13 @@
 #define SETUP_H_
 
 struct Setup {
-	float pen_up;
-	float pen_down;
-	float speed;
+	int pen_up;
+	int pen_down;
+	int speed;
 	float last_x_pos;
 	float last_y_pos;
+	int length_x;
+	int length_y;
 };
 
 #endif /* SETUP_H_ */

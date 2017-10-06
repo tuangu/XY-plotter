@@ -25,6 +25,7 @@
 #include "Servo.h"
 #include "StepperMotor.h"
 #include "Command.h"
+#include "Setup.h"
 
 void setupHardware();
 
@@ -33,11 +34,11 @@ void vReceiveTask(void *vParameters);
 void vExecuteTask(void *vParameters);
 void vCalibrateTask(void *vParameters);
 
-
 StepperMotor *xmotor;
 StepperMotor *ymotor;
 Servo *pen;
 
+Setup XYSetup;
 SerialLog debugSerial;
 QueueHandle_t qCommand;
 EventGroupHandle_t eMotor;
@@ -89,12 +90,23 @@ void vCalibrateTask(void *vParameters) {
     ymotor = new StepperMotor(LPC_SCT3, 60, 0, 9, 0, 29, 1, 9, 1, 10, &eMotor, motorEventY);
     ymotor->calibrate();
 
+    XYSetup.last_x_pos = xmotor->getCurrentPos();
+    XYSetup.last_y_pos = ymotor->getCurrentPos();
+    XYSetup.speed = 50;
+    XYSetup.length_x = 380; // = 290 if using simulator
+    XYSetup.length_y = 310; // = 290 if using simulator
+    XYSetup.pen_down = 90;
+    XYSetup.pen_up = 130;
+
+    xmotor->setBaseLength(XYSetup.length_x);
+    ymotor->setBaseLength(XYSetup.length_y);
+
     vTaskDelete(NULL);
 }
 
 void vReceiveTask(void *vParameters) {
     GParser parser;
-    char buffer[32] = {'0'};
+    char buffer[32];
     int idx = 0;
 
     while (1) {
@@ -152,8 +164,13 @@ void vExecuteTask(void *vParameters) {
         /* do something useful*/
         switch (recv.type) {
         case Command::connected:
-            // debugSerial.write("M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n");
-            debugSerial.write("M10 XY 290 290 0.00 0.00 A0 B0 H0 S50 U130 D90 \n");
+            // debugSerial.write("M10 XY 290 290 0.00 0.00 A0 B0 H0 S50 U130 D90 \n");
+            {
+                char buffer[48];
+                snprintf(buffer, 48, "M10 XY %d %d 0.00 0.00 A0 B0 H0 S%d U%d D%d \n",
+                         XYSetup.length_x, XYSetup.length_y, XYSetup.speed, XYSetup.pen_up, XYSetup.pen_down);
+                debugSerial.write(buffer);
+            }
             break;
         case Command::laser:
             // TODO laser
@@ -179,7 +196,8 @@ void vExecuteTask(void *vParameters) {
             pen->moveServo(recv.params[0]);
             break;
         case Command::pen_setting:
-            // ignore
+            XYSetup.pen_up = recv.params[0];
+            XYSetup.pen_down = recv.params[1];
             break;
         case Command::plotter_setting:
             // ignore

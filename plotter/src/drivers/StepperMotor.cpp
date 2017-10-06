@@ -22,10 +22,8 @@ StepperMotor::StepperMotor(LPC_SCT_T *timer_, float rpm_, int mPort, int mPin,
     /* Select timer, irq handler*/
     if (timer_ == LPC_SCT2) {
         this->irq = SCT2_IRQn;
-        this->base = 290; // 380;
     } else if (timer_ == LPC_SCT3) {
         this->irq = SCT3_IRQn;
-        this->base = 290; // 310;
     }
 
     this->rpm = (rpm_ > 0) ? rpm_ : 60;
@@ -184,4 +182,13 @@ int StepperMotor::getRpm() {
 void StepperMotor::setRpm(float rpm) {
     if (rpm > 0)
         this->rpm = rpm;
+}
+
+void StepperMotor::setBaseLength(int base) {
+    if (base > 0)
+        this->base = base;
+}
+
+float StepperMotor::getCurrentPos() {
+    return currentPosition;
 }
