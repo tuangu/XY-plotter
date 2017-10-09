@@ -6,7 +6,7 @@
 #endif
 #endif
 
-#define USING_USB_CDC   0
+#define USING_USB_CDC   1
 
 #include <cr_section_macros.h>
 
@@ -32,7 +32,7 @@ void setupHardware();
 /* Task Declaration */
 void vReceiveTask(void *vParameters);
 void vExecuteTask(void *vParameters);
-void vCalibrateTask(void *vParameters);
+//void vCalibrateTask(void *vParameters);
 
 StepperMotor *xmotor;
 StepperMotor *ymotor;
@@ -55,14 +55,14 @@ int main(void) {
     eMotor = xEventGroupCreate();
     qCommand = xQueueCreate(1, sizeof(Command));
 
-    xTaskCreate(vReceiveTask, "Receive Task", configMINIMAL_STACK_SIZE * 2, NULL,
+    xTaskCreate(vReceiveTask, "Receive Task", configMINIMAL_STACK_SIZE * 3, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE * 4, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
-    xTaskCreate(vCalibrateTask, "Calibrate Task", configMINIMAL_STACK_SIZE,
-            NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
+    /*xTaskCreate(vCalibrateTask, "Calibrate Task", configMINIMAL_STACK_SIZE,
+            NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);*/
 
 #if USING_USB_CDC
     xTaskCreate(cdc_task, "CDC Task", configMINIMAL_STACK_SIZE * 2, NULL,
@@ -87,7 +87,7 @@ void setupHardware() {
 
 /***** Task Definition *****/
 
-void vCalibrateTask(void *vParameters) {
+/*void vCalibrateTask(void *vParameters) {
     xmotor = new StepperMotor(LPC_SCT2, 60, motorXPort, motorXPin, motorXDirPort, motorXDirPin,
     						  limitYMinPort, limitYMinPin, limitYMaxPort, limitYMaxPin, &eMotor, motorEventX);
     xmotor->calibrate();
@@ -107,7 +107,7 @@ void vCalibrateTask(void *vParameters) {
     ymotor->setBaseLength(XYSetup.length_y);
 
     vTaskDelete(NULL);
-}
+}*/
 
 void vReceiveTask(void *vParameters) {
     GParser parser;
@@ -116,7 +116,6 @@ void vReceiveTask(void *vParameters) {
 
     while (1) {
         /* get GCode from mDraw */
-#if USING_USB_CDC
         char buffer[RCV_BUFSIZE] = {'0'};
         int idx = 0;
         while (1) {
@@ -130,32 +129,14 @@ void vReceiveTask(void *vParameters) {
             idx += len;
         }
 
-        debugSerial.write(buffer);
-        debugSerial.write((char *) "\r");
+        ITM_write(buffer);
 
         /* parse GCode */
         Command gcode = parser.parse(buffer, strlen(buffer));
 
         /* send commands into queue */
         xQueueSendToBack(qCommand, &gcode, portMAX_DELAY);
-#else   // use usb debug
-        int c;
-        if ((c = debugSerial.read()) != EOF) {
-            buffer[idx++] = c;
-            if (c == '\n') {
-                buffer[idx] = '\0';
-                ITM_write(buffer);
 
-                /* parse GCode and send it to queue*/
-                Command gcode = parser.parse(buffer, strlen(buffer));
-                xQueueSendToBack(qCommand, &gcode, portMAX_DELAY);
-
-                /* reset buffer */
-                memset(buffer, '\0', 32);
-                idx = 0;
-            }
-        }
-#endif
     }
 }
 
@@ -233,8 +214,6 @@ void vExecuteTask(void *vParameters) {
 #if USING_USB_CDC
         char message[] = "OK\n";
         USB_send((uint8_t *) message, 4);
-#else
-        debugSerial.write((char *) "OK\n");
 #endif
 
     }

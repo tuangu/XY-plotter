@@ -10,6 +10,7 @@
 #include "semphr.h"
 #include "task.h"
 #include "event_groups.h"
+#include "ITM_write.h"
 
 StepperMotor::StepperMotor(LPC_SCT_T *timer_, float rpm_, int mPort, int mPin,
         int dPort, int dPin, int lMinPort, int lMinPin, int lMaxPort,
@@ -118,7 +119,7 @@ bool StepperMotor::irqHandler() {
 }
 
 void StepperMotor::calibrate() {
-
+	char buffer[20] = {'0'};
     /* move to origin */
     dirPin.write(motorToOrigin);
     bool stepValue = false;
@@ -162,6 +163,8 @@ void StepperMotor::calibrate() {
 
     totalStep = (stepCountBackward + stepCountForward) / 4; // - offset;
     currentPosition = 0;
+    sprintf(buffer, "Total steps : %d\n", totalStep);
+    ITM_write(buffer);
 }
 
 int StepperMotor::getMoveCount(float newPos) {
