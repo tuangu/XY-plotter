@@ -3,10 +3,15 @@
 #include <stdlib.h>
 #include "DigitalIoPin.h"
 #include "FreeRTOS.h"
+#include "task.h"
 #include "semphr.h"
 
-XYMotor::XYMotor(DigitalIoPin* dirX, DigitalIoPin* stepX, DigitalIoPin* dirY, DigitalIoPin *stepY):
-    dirXPin(dirX), stepXPin(stepX), dirYPin(dirY), stepYPin(stepY) {
+XYMotor::XYMotor(DigitalIoPin* dirX, DigitalIoPin* stepX, DigitalIoPin* dirY, DigitalIoPin *stepY,
+        DigitalIoPin* lmXMin, DigitalIoPin* lmXMax, DigitalIoPin* lmYMin, DigitalIoPin* lmYMax):
+    dirXPin(dirX), stepXPin(stepX), dirYPin(dirY), stepYPin(stepY),
+    lmXMin(lmXMin), lmXMax(lmXMax), lmYMin(lmYMin), lmYMax(lmYMax) {
+
+    dirToOrigin = false;
     sbRIT = xSemaphoreCreateBinary();
 }
 
@@ -14,19 +19,14 @@ XYMotor::~XYMotor() {
 
 }
 
-void XYMotor::move(float fromX, float fromY, float toX, float toY) {
+void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
     float dx = toX - fromX;
     float dy = toY - fromY;
 
-    if (dx < 0)
-        dirXPin->write(dirToOrigin);
-    else
-        dirXPin->write(!dirToOrigin);
-
-    if (dy < 0)
-        dirYPin->write(dirToOrigin);
-    else
-        dirYPin->write(!dirToOrigin);
+    dirX = (dx < 0) ? dirToOrigin : !dirToOrigin;
+    dirXPin->write(dirX);
+    dirY = (dy < 0) ? dirToOrigin : !dirToOrigin;
+    dirYPin->write(dirY);
 
     x = 0; xState = false;
     y = 0; yState = false;
@@ -37,51 +37,6 @@ void XYMotor::move(float fromX, float fromY, float toX, float toY) {
     isUpdateDelta = false;
 
     RIT_start(pps);
-}
-
-bool XYMotor::irqHandler() {
-    portBASE_TYPE xHigherPriorityWoken = pdFALSE;
-
-    Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
-
-    if(x == stepX && y == stepY) {
-        // disable timer
-        Chip_RIT_Disable(LPC_RITIMER);
-
-        // give semaphore and set context switch flag if a higher priority task was woken up
-        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
-    } else {
-        // move motor X, update x every 2 interrupts
-        if (x < stepX) {
-            stepXPin->write(xState);
-            x += (xState) ? 1 : 0;
-            xState = !xState;
-        }
-
-        // move motor Y
-        // need 2 interrupts to drive step pin from LOW to HIGH
-        if (motorYMove == true) {
-            stepYPin->write(yState);
-            if (yState)
-                motorYMove = false;
-            yState = !yState;
-        }
-
-        // update delta every 2 interrupts
-        if (isUpdateDelta) {
-            if (delta > 0) {
-                y += 1;
-                delta = delta - 2 * stepX;
-                motorYMove = true;
-            }
-            delta = delta + 2 * stepY;
-        }
-
-        isUpdateDelta = !isUpdateDelta;
-
-    }
-
-    return xHigherPriorityWoken;
 }
 
 void XYMotor::RIT_start(int pps) {
@@ -116,12 +71,59 @@ void XYMotor::RIT_start(int pps) {
     }
 }
 
-void XYMotor::setPps(int newPps) {
-    pps = newPps;
-}
+bool XYMotor::irqHandler() {
+    portBASE_TYPE xHigherPriorityWoken = pdFALSE;
 
-int XYMotor::getPps() {
-    return pps;
+    Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
+
+    if(x == stepX && y == stepY) {
+        // disable timer
+        Chip_RIT_Disable(LPC_RITIMER);
+
+        // give semaphore and set context switch flag if a higher priority task was woken up
+        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
+    } else {
+
+        // move motor X, Y
+        // need 2 interrupts to drive step pin from LOW to HIGH
+        if (x < stepX) {
+            stepXPin->write(xState);
+            x += (xState) ? 1 : 0;
+            xState = !xState;
+        }
+
+        if (motorYMove && (y < stepY)) {
+            stepYPin->write(yState);
+            if (yState)
+                motorYMove = false;
+            yState = !yState;
+        }
+
+        // update delta every 2 interrupts
+        if (isUpdateDelta) {
+            if (delta > 0) {
+                y += 1;
+                delta = delta - 2 * stepX;
+                motorYMove = true;
+            }
+            delta = delta + 2 * stepY;
+        }
+
+        isUpdateDelta = !isUpdateDelta;
+
+        // check limit switches
+        bool minX = lmXMin->read() && (dirX == dirToOrigin);
+        bool maxX = lmXMax->read() && (dirX == !dirToOrigin);
+        bool minY = lmYMin->read() && (dirY == dirToOrigin);
+        bool maxY = lmYMax->read() && (dirY == !dirToOrigin);
+
+        if (minX || maxX)
+            x = stepX; // X motor will stop in the next interrupt
+        if (minY || maxY)
+            y = stepY; // Y motor will stop in the next interrupt
+    }
+
+    return xHigherPriorityWoken;
 }
 
 void XYMotor::setBaseX(int base) {
@@ -138,4 +140,40 @@ void XYMotor::setTotalStepX(int total) {
 
 void XYMotor::setTotalStepY(int total) {
     totalStepY = total;
+}
+
+int calibrateMotor(DigitalIoPin* step, DigitalIoPin* dir, DigitalIoPin* lmMin, DigitalIoPin* lmMax) {
+    int xstep;
+    bool dirToOrigin = false;
+
+    /* move to origin */
+    dir->write(dirToOrigin);
+    bool stepValue = false;
+    while (!lmMin->read() && !lmMax->read()) {
+        step->write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    /* first calibration */
+    dir->write(!dirToOrigin);
+    stepValue = false;
+    while (!lmMax->read()) {
+        xstep++;
+        step->write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    /* second calibration */
+    dir->write(dirToOrigin);
+    stepValue = false;
+    while (!lmMin->read()) {
+        xstep++;
+        step->write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    return xstep / 4;
 }
