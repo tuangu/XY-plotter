@@ -1,6 +1,7 @@
 #include <XYMotor.h>
 
 #include <stdlib.h>
+#include "ITM_write.h"
 #include "DigitalIoPin.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -11,8 +12,12 @@ XYMotor::XYMotor(DigitalIoPin* dirX, DigitalIoPin* stepX, DigitalIoPin* dirY, Di
     dirXPin(dirX), stepXPin(stepX), dirYPin(dirY), stepYPin(stepY),
     lmXMin(lmXMin), lmXMax(lmXMax), lmYMin(lmYMin), lmYMax(lmYMax) {
 
-    dirToOrigin = false;
+    dirToOrigin = false; // true;
     sbRIT = xSemaphoreCreateBinary();
+
+    totalStepX = 0;
+    totalStepY = 0;
+    isCalibrating = true;
 }
 
 XYMotor::~XYMotor() {
@@ -32,43 +37,13 @@ void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
     y = 0; yState = false;
     stepX = abs(dx * totalStepX / baseX);
     stepY = abs(dy * totalStepY / baseY);
+
     delta = 2 * stepY - stepX;
+
     motorYMove = (delta > 0) ? true : false;
     isUpdateDelta = false;
 
     RIT_start(pps);
-}
-
-void XYMotor::RIT_start(int pps) {
-    uint64_t cmp_value;
-
-    // Determine approximate compare value based on clock rate and passed interval
-    cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
-
-    // disable timer during configuration
-    Chip_RIT_Disable(LPC_RITIMER);
-
-    // enable automatic clear on when compare value==timer value
-    // this makes interrupts trigger periodically
-    Chip_RIT_EnableCompClear(LPC_RITIMER);
-
-    // reset the counter
-    Chip_RIT_SetCounter(LPC_RITIMER, 0);
-    Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
-
-    // start counting
-    Chip_RIT_Enable(LPC_RITIMER);
-
-    // Enable the interrupt signal in NVIC (the interrupt controller)
-    NVIC_EnableIRQ(RITIMER_IRQn);
-
-    // wait for ISR to tell that we're done
-    if (xSemaphoreTake(sbRIT, portMAX_DELAY) == pdTRUE) {
-        // Disable the interrupt signal in NVIC (the interrupt controller)
-        NVIC_DisableIRQ(RITIMER_IRQn);
-    } else {
-        // unexpected error
-    }
 }
 
 bool XYMotor::irqHandler() {
@@ -126,6 +101,106 @@ bool XYMotor::irqHandler() {
     return xHigherPriorityWoken;
 }
 
+void XYMotor::calibrate() {
+    int pps = 800;
+
+    // to origin
+    dirX = dirToOrigin; dirY = dirToOrigin;
+    dirXPin->write(dirX);
+    dirYPin->write(dirY);
+    RIT_start(pps);
+
+    // 1st
+    dirX = !dirToOrigin; dirY = !dirToOrigin;
+    totalStepX = 0; xState = false;
+    totalStepY = 0; yState = false;
+    dirXPin->write(dirX);
+    dirYPin->write(dirY);
+    RIT_start(pps);
+
+    // 2nd
+    dirX = dirToOrigin; dirY = dirToOrigin;
+    dirXPin->write(dirX);
+    dirYPin->write(dirY);
+    RIT_start(pps);
+
+    isCalibrating = false;
+
+    totalStepX /= 4;
+    totalStepY /= 4;
+
+    char buffer[32];
+    snprintf(buffer, 32, "X: %ld\r\nY: %ld\r\n", totalStepX, totalStepY);
+    ITM_write(buffer);
+}
+
+
+
+void XYMotor::RIT_start(int pps) {
+    uint64_t cmp_value;
+
+    // Determine approximate compare value based on clock rate and passed interval
+    cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
+
+    // disable timer during configuration
+    Chip_RIT_Disable(LPC_RITIMER);
+
+    // enable automatic clear on when compare value==timer value
+    // this makes interrupts trigger periodically
+    Chip_RIT_EnableCompClear(LPC_RITIMER);
+
+    // reset the counter
+    Chip_RIT_SetCounter(LPC_RITIMER, 0);
+    Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
+
+    // start counting
+    Chip_RIT_Enable(LPC_RITIMER);
+
+    // Enable the interrupt signal in NVIC (the interrupt controller)
+    NVIC_EnableIRQ(RITIMER_IRQn);
+
+    // wait for ISR to tell that we're done
+    if (xSemaphoreTake(sbRIT, portMAX_DELAY) == pdTRUE) {
+        // Disable the interrupt signal in NVIC (the interrupt controller)
+        NVIC_DisableIRQ(RITIMER_IRQn);
+    } else {
+        // unexpected error
+    }
+}
+
+bool XYMotor::irqHandlerCalibration() {
+    portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+
+    Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
+
+    bool minX = lmXMin->read() && (dirX == dirToOrigin);
+    bool maxX = lmXMax->read() && (dirX == !dirToOrigin);
+    bool minY = lmYMin->read() && (dirY == dirToOrigin);
+    bool maxY = lmYMax->read() && (dirY == !dirToOrigin);
+
+    if (!minX && !maxX) {
+        stepXPin->write(xState);
+        xState = !xState;
+        totalStepX++;
+    }
+
+    if (!minY && !maxY) {
+        stepYPin->write(yState);
+        yState = !yState;
+        totalStepY++;
+    }
+
+    if ((minX || maxX) && (minY || maxY)) {
+        // disable timer
+        Chip_RIT_Disable(LPC_RITIMER);
+
+        // give semaphore and set context switch flag if a higher priority task was woken up
+        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
+    }
+
+    return xHigherPriorityWoken;
+}
+
 void XYMotor::setBaseX(int base) {
     baseX = base;
 }
@@ -134,46 +209,10 @@ void XYMotor::setBaseY(int base) {
     baseY = base;
 }
 
-void XYMotor::setTotalStepX(int total) {
+void XYMotor::setTotalStepX(long total) {
     totalStepX = total;
 }
 
-void XYMotor::setTotalStepY(int total) {
+void XYMotor::setTotalStepY(long total) {
     totalStepY = total;
-}
-
-int calibrateMotor(DigitalIoPin* step, DigitalIoPin* dir, DigitalIoPin* lmMin, DigitalIoPin* lmMax) {
-    int xstep;
-    bool dirToOrigin = false;
-
-    /* move to origin */
-    dir->write(dirToOrigin);
-    bool stepValue = false;
-    while (!lmMin->read() && !lmMax->read()) {
-        step->write(stepValue);
-        stepValue = !stepValue;
-        vTaskDelay(1);
-    }
-
-    /* first calibration */
-    dir->write(!dirToOrigin);
-    stepValue = false;
-    while (!lmMax->read()) {
-        xstep++;
-        step->write(stepValue);
-        stepValue = !stepValue;
-        vTaskDelay(1);
-    }
-
-    /* second calibration */
-    dir->write(dirToOrigin);
-    stepValue = false;
-    while (!lmMin->read()) {
-        xstep++;
-        step->write(stepValue);
-        stepValue = !stepValue;
-        vTaskDelay(1);
-    }
-
-    return xstep / 4;
 }

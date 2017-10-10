@@ -31,6 +31,8 @@ void vReceiveTask(void *vParameters);
 void vExecuteTask(void *vParameters);
 void vCalibrateTask(void *vParameters);
 
+long calibrateMotor(DigitalIoPin* step, DigitalIoPin* dir, DigitalIoPin* lm1, DigitalIoPin* lm2);
+
 DigitalIoPin* dirXPin;
 DigitalIoPin* stepXPin;
 DigitalIoPin* dirYPin;
@@ -50,16 +52,16 @@ int main(void) {
 
     setupHardware();
 
-    qCommand = xQueueCreate(10, sizeof(Command));
+    qCommand = xQueueCreate(1, sizeof(Command));
 
     xTaskCreate(vReceiveTask, "Receive Task", configMINIMAL_STACK_SIZE * 3, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
-    xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE * 3, NULL,
+    xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE * 4, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
-    xTaskCreate(vCalibrateTask, "Calibrate Task", configMINIMAL_STACK_SIZE,
-            NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
+//    xTaskCreate(vCalibrateTask, "Calibrate Task", configMINIMAL_STACK_SIZE,
+//            NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(cdc_task, "CDC Task", configMINIMAL_STACK_SIZE * 2, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
@@ -76,8 +78,13 @@ int main(void) {
 void setupHardware() {
     SystemCoreClockUpdate();
     Board_Init();
-
     ITM_init();
+    Chip_RIT_Init(LPC_RITIMER);
+
+    // set the priority level of the interrupt
+    // The level must be equal or lower than the maximum priority specified in FreeRTOS config
+    // Note that in a Cortex-M3 a higher number indicates lower interrupt priority
+    NVIC_SetPriority(RITIMER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 1);
 
     Board_LED_Set(0, false);
 
@@ -121,33 +128,36 @@ void vReceiveTask(void *vParameters) {
 
     while (1) {
         /* get GCode from mDraw */
-        char buffer[RCV_BUFSIZE];
+        char buffer[RCV_BUFSIZE] = {'0'};
         int idx = 0;
         while (1) {
             int len = USB_receive((uint8_t *) (buffer + idx), RCV_BUFSIZE);
 
             char *pos = strstr((buffer + idx), "\n");// find '\n' <=> end of command
 
-            if (pos != NULL)
+            if (pos != NULL) {
+                ITM_write(buffer);
+
+                /* parse GCode */
+                Command gcode = parser.parse(buffer, strlen(buffer));
+
+                /* send commands into queue */
+                if (gcode.type != Command::invalid) {
+                    xQueueSendToBack(qCommand, &gcode, portMAX_DELAY);
+
+                    /* send `OK` message to mDraw */
+                    if (gcode.type != Command::connected)
+                        USB_send((uint8_t *) message, strlen(message));
+//                    else {
+//                        char buffer[] = "M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n";
+//                        USB_send((uint8_t *) buffer, strlen(buffer));
+//                    }
+                }
+
                 break;
+            }
 
             idx += len;
-
-            vTaskDelay(1); // polling every 1 ms
-        }
-
-        ITM_write(buffer);
-
-        /* parse GCode */
-        Command gcode = parser.parse(buffer, strlen(buffer));
-
-        /* send commands into queue */
-        if (gcode.type != Command::invalid) {
-            xQueueSendToBack(qCommand, &gcode, portMAX_DELAY);
-
-            /* send `OK` message to mDraw */
-            if (gcode.type != Command::connected)
-                USB_send((uint8_t *) message, strlen(message));
         }
     }
 }
@@ -163,12 +173,28 @@ void vExecuteTask(void *vParameters) {
             switch (recv.type) {
             case Command::connected:
                 {
-//                    char buffer[48];
-//                    snprintf(buffer, 48, "M10 XY %d %d 0.00 0.00 A0 B0 H0 S%d U%d D%d \n",
-//                             XYSetup.length_x, XYSetup.length_y, XYSetup.speed, XYSetup.pen_up, XYSetup.pen_down);
+                    char buffer[48];
+                    snprintf(buffer, 48, "M10 XY %d %d %.2f %.2f A0 B0 H0 S%d U%d D%d \n",
+                            xyconfig.length_x, xyconfig.length_y, xyconfig.last_x_pos, xyconfig.last_y_pos,
+                            xyconfig.speed, xyconfig.pen_up, xyconfig.pen_down);
 
-                    char buffer[] = "M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n";
+//                    char buffer[] = "M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n";
                     USB_send((uint8_t *) buffer, strlen(buffer));
+                    pen->moveServo(xyconfig.pen_up);
+
+                    // TODO
+                    // int xstep = calibrateMotor(stepXPin, dirXPin, lmXMin, lmXMax); //
+                    // int ystep = calibrateMotor(stepYPin, dirYPin, lmYMin, lmYMax);
+
+                    xymotor->calibrate();
+
+                    xymotor->setBaseX(xyconfig.length_x);
+                    xymotor->setBaseY(xyconfig.length_y);
+                    // xymotor->setTotalStepX(xstep);
+                    // xymotor->setTotalStepY(ystep);
+                    xyconfig.last_x_pos = 0;
+                    xyconfig.last_y_pos = 0;
+
                 }
                 break;
             case Command::laser:
@@ -208,16 +234,59 @@ void vExecuteTask(void *vParameters) {
             default:
                 break;
             }
+
+//            vTaskDelay(5);
         }
 
     }
+}
+
+long calibrateMotor(DigitalIoPin* step, DigitalIoPin* dir, DigitalIoPin* lmMin, DigitalIoPin* lmMax) {
+    long totalStep;
+    bool dirToOrigin = false;// true;
+
+    /* move to origin */
+    dir->write(dirToOrigin);
+    bool stepValue = false;
+    while (!lmMin->read() && !lmMax->read()) {
+        step->write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    /* first calibration */
+    dir->write(!dirToOrigin);
+    stepValue = false;
+    while (!lmMax->read()) {
+        totalStep++;
+        step->write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    /* second calibration */
+    dir->write(dirToOrigin);
+    stepValue = false;
+    while (!lmMin->read()) {
+        totalStep++;
+        step->write(stepValue);
+        stepValue = !stepValue;
+        vTaskDelay(1);
+    }
+
+    return totalStep / 4;
 }
 
 /* the following is required if runtime statistics are to be collected */
 extern "C" {
 
 void RIT_IRQHandler(void) {
-    portEND_SWITCHING_ISR(xymotor->irqHandler());
+    if (xymotor->isCalibrating) {
+        portEND_SWITCHING_ISR(xymotor->irqHandlerCalibration());
+    } else {
+        portEND_SWITCHING_ISR(xymotor->irqHandler());
+    }
+
 }
 
 void vConfigureTimerForRunTimeStats(void) {

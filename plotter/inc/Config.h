@@ -19,29 +19,29 @@
 #define motorYDirPort   1
 #define motorYDirPin    0
 
-#define motorPps        400
+#define motorPps        2000
 
 /* Limit switches */
-#define limitXMinPort   0
-#define limitXMinPin    9
+#define limitXMinPort   1
+#define limitXMinPin    3
 #define limitXMaxPort   0
-#define limitXMaxPin    29
+#define limitXMaxPin    0
 
 #define limitYMinPort   0
-#define limitYMinPin    0
-#define limitYMaxPort   1
-#define limitYMaxPin    3
+#define limitYMinPin    29
+#define limitYMaxPort   0
+#define limitYMaxPin    9
 
 /* Pen */
 #define penPort         0
 #define penPin          10
 
 /* Plotter setting */
-#define plotterWidth    380
-#define plotterHeight   310
+#define plotterWidth    380 // 290
+#define plotterHeight   310 // 290
 
 struct XYSetup {
-	int pen_up = 130;
+	int pen_up = 20;
 	int pen_down = 90;
 	int speed = 50;
 	float last_x_pos;

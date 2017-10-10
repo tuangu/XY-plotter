@@ -12,13 +12,17 @@ public:
     virtual ~XYMotor();
 
     void setBaseX(int baseX);
-    void setTotalStepX(int totalStepX);
+    void setTotalStepX(long totalStepX);
     void setBaseY(int baseY);
-    void setTotalStepY(int totalStepY);
+    void setTotalStepY(long totalStepY);
 
+    void calibrate();
     void move(float fromX, float fromY, float toX, float toY, int pps);
     bool irqHandler();
+    bool irqHandlerCalibration();
     void RIT_start(int pps); // pps = pulse per revolution
+
+    bool isCalibrating;
 private:
     DigitalIoPin* dirXPin;
     DigitalIoPin* stepXPin;
@@ -42,13 +46,11 @@ private:
     bool motorYMove;
     SemaphoreHandle_t sbRIT;
 
-    int totalStepX;
-    int totalStepY;
+    long totalStepX;
+    long totalStepY;
     int baseX;
     int baseY;
     bool dirToOrigin;
 };
-
-int calibrateMotor(DigitalIoPin* step, DigitalIoPin* dir, DigitalIoPin* lm1, DigitalIoPin* lm2);
 
 #endif /* XYMOTOR_H_ */
