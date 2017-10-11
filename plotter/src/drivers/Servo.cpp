@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 Servo::Servo(int port_, int pin_): port(port_), pin(pin_) {
-
+    Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, port, pin);
     Chip_SCT_Init(LPC_SCT0);
 
     LPC_SCT0->CONFIG |= (1 << 17);              // two 16-bit timers, auto limit
@@ -20,31 +20,29 @@ Servo::Servo(int port_, int pin_): port(port_), pin(pin_) {
 }
 
 void Servo::moveServo(double value) {
-
     double duty_cycle = PWM_cycle;
 
-    char debug[60];
+//    char debug[60];
 
-    //calculating from bit to hz
+    // calculating from bit to hz
     duty_cycle = ((value / 255.00) + 1.00) * 1000.00;
 
     if (duty_cycle < 1003) {
         duty_cycle = 1000;
-    }
-    if (duty_cycle > 1996) {
+    } else if (duty_cycle > 1996) {
         duty_cycle = 2000;
     }
 
-    sprintf(debug, "Duty cycle before Match: %5.2f \n", (double) duty_cycle);
-    ITM_write(debug);
+//    sprintf(debug, "Duty cycle before Match: %5.2f \n", (double) duty_cycle);
+//    ITM_write(debug);
 
-    //change duty cycle
+    // change duty cycle
     LPC_SCT0->MATCHREL[1].L = duty_cycle;
 
-    sprintf(debug, "Duty cycle final: %5.2f \n", (double) LPC_SCT0->MATCHREL[1].L);
-    ITM_write(debug);
+//    sprintf(debug, "Duty cycle final: %5.2f \n", (double) LPC_SCT0->MATCHREL[1].L);
+//    ITM_write(debug);
 
-    Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, port, pin);
+
 }
 
 Servo::~Servo() {

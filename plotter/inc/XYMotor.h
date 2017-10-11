@@ -33,6 +33,9 @@ private:
     DigitalIoPin* lmYMin;
     DigitalIoPin* lmYMax;
 
+    DigitalIoPin* tempXPin;
+    DigitalIoPin* tempYPin;
+
     int x;
     int y;
     bool dirX;

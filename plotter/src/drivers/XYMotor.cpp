@@ -24,6 +24,40 @@ XYMotor::~XYMotor() {
 
 }
 
+void XYMotor::calibrate() {
+    int pps = 1600;
+
+    dirX = dirToOrigin;
+    dirY = dirToOrigin;
+    totalStepX = 0;
+    totalStepY = 0;
+    /*
+     * i = 0: move to origin
+     * i = 1: 1st calibration
+     * i = 2: 2nd calibration
+     */
+    for (int i = 0; i < 3; i++) {
+        dirXPin->write(dirX);
+        dirYPin->write(dirY);
+        xState = false;
+        yState = false;
+        RIT_start(pps);
+
+        dirX = !dirX;
+        dirY = !dirY;
+    }
+
+    // set calibration flag
+    isCalibrating = false;
+
+    totalStepX = totalStepX / 4 + 1;
+    totalStepY = totalStepY / 4 + 1;
+
+    char buffer[32];
+    snprintf(buffer, 32, "X: %ld\r\nY: %ld\r\n", totalStepX, totalStepY);
+    ITM_write(buffer);
+}
+
 void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
     float dx = toX - fromX;
     float dy = toY - fromY;
@@ -35,12 +69,24 @@ void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
 
     x = 0; xState = false;
     y = 0; yState = false;
+
     stepX = abs(dx * totalStepX / baseX);
     stepY = abs(dy * totalStepY / baseY);
 
-    delta = 2 * stepY - stepX;
+    if (stepX < stepY) {
+        stepX = abs(dy * totalStepY / baseY);
+        stepY = abs(dx * totalStepX / baseX);
 
+        tempXPin = stepYPin;
+        tempYPin = stepXPin;
+    } else {
+        tempXPin = stepXPin;
+        tempYPin = stepYPin;
+    }
+
+    delta = 2 * stepY - stepX;
     motorYMove = (delta > 0) ? true : false;
+
     isUpdateDelta = false;
 
     RIT_start(pps);
@@ -62,13 +108,13 @@ bool XYMotor::irqHandler() {
         // move motor X, Y
         // need 2 interrupts to drive step pin from LOW to HIGH
         if (x < stepX) {
-            stepXPin->write(xState);
+            tempXPin->write(xState);
             x += (xState) ? 1 : 0;
             xState = !xState;
         }
 
         if (motorYMove && (y < stepY)) {
-            stepYPin->write(yState);
+            tempYPin->write(yState);
             if (yState)
                 motorYMove = false;
             yState = !yState;
@@ -99,73 +145,6 @@ bool XYMotor::irqHandler() {
     }
 
     return xHigherPriorityWoken;
-}
-
-void XYMotor::calibrate() {
-    int pps = 800;
-
-    // to origin
-    dirX = dirToOrigin; dirY = dirToOrigin;
-    dirXPin->write(dirX);
-    dirYPin->write(dirY);
-    RIT_start(pps);
-
-    // 1st
-    dirX = !dirToOrigin; dirY = !dirToOrigin;
-    totalStepX = 0; xState = false;
-    totalStepY = 0; yState = false;
-    dirXPin->write(dirX);
-    dirYPin->write(dirY);
-    RIT_start(pps);
-
-    // 2nd
-    dirX = dirToOrigin; dirY = dirToOrigin;
-    dirXPin->write(dirX);
-    dirYPin->write(dirY);
-    RIT_start(pps);
-
-    isCalibrating = false;
-
-    totalStepX /= 4;
-    totalStepY /= 4;
-
-    char buffer[32];
-    snprintf(buffer, 32, "X: %ld\r\nY: %ld\r\n", totalStepX, totalStepY);
-    ITM_write(buffer);
-}
-
-
-
-void XYMotor::RIT_start(int pps) {
-    uint64_t cmp_value;
-
-    // Determine approximate compare value based on clock rate and passed interval
-    cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
-
-    // disable timer during configuration
-    Chip_RIT_Disable(LPC_RITIMER);
-
-    // enable automatic clear on when compare value==timer value
-    // this makes interrupts trigger periodically
-    Chip_RIT_EnableCompClear(LPC_RITIMER);
-
-    // reset the counter
-    Chip_RIT_SetCounter(LPC_RITIMER, 0);
-    Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
-
-    // start counting
-    Chip_RIT_Enable(LPC_RITIMER);
-
-    // Enable the interrupt signal in NVIC (the interrupt controller)
-    NVIC_EnableIRQ(RITIMER_IRQn);
-
-    // wait for ISR to tell that we're done
-    if (xSemaphoreTake(sbRIT, portMAX_DELAY) == pdTRUE) {
-        // Disable the interrupt signal in NVIC (the interrupt controller)
-        NVIC_DisableIRQ(RITIMER_IRQn);
-    } else {
-        // unexpected error
-    }
 }
 
 bool XYMotor::irqHandlerCalibration() {
@@ -199,6 +178,38 @@ bool XYMotor::irqHandlerCalibration() {
     }
 
     return xHigherPriorityWoken;
+}
+
+void XYMotor::RIT_start(int pps) {
+    uint64_t cmp_value;
+
+    // Determine approximate compare value based on clock rate and passed interval
+    cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
+
+    // disable timer during configuration
+    Chip_RIT_Disable(LPC_RITIMER);
+
+    // enable automatic clear on when compare value==timer value
+    // this makes interrupts trigger periodically
+    Chip_RIT_EnableCompClear(LPC_RITIMER);
+
+    // reset the counter
+    Chip_RIT_SetCounter(LPC_RITIMER, 0);
+    Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
+
+    // start counting
+    Chip_RIT_Enable(LPC_RITIMER);
+
+    // Enable the interrupt signal in NVIC (the interrupt controller)
+    NVIC_EnableIRQ(RITIMER_IRQn);
+
+    // wait for ISR to tell that we're done
+    if (xSemaphoreTake(sbRIT, portMAX_DELAY) == pdTRUE) {
+        // Disable the interrupt signal in NVIC (the interrupt controller)
+        NVIC_DisableIRQ(RITIMER_IRQn);
+    } else {
+        // unexpected error
+    }
 }
 
 void XYMotor::setBaseX(int base) {

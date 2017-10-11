@@ -23,15 +23,12 @@
 #include "Laser.h"
 #include "Servo.h"
 
-
 void setupHardware();
 
 /* Tasks Declaration */
 void vReceiveTask(void *vParameters);
 void vExecuteTask(void *vParameters);
 void vCalibrateTask(void *vParameters);
-
-long calibrateMotor(DigitalIoPin* step, DigitalIoPin* dir, DigitalIoPin* lm1, DigitalIoPin* lm2);
 
 DigitalIoPin* dirXPin;
 DigitalIoPin* stepXPin;
@@ -59,9 +56,6 @@ int main(void) {
 
     xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE * 4, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
-
-//    xTaskCreate(vCalibrateTask, "Calibrate Task", configMINIMAL_STACK_SIZE,
-//            NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(cdc_task, "CDC Task", configMINIMAL_STACK_SIZE * 2, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
@@ -103,24 +97,6 @@ void setupHardware() {
 //    laser->changeLaserPower(0); // drive laser low
 }
 
-/***** Task Definition *****/
-
-void vCalibrateTask(void *vParameters) {
-    /* Calibrating */
-    int xstep = calibrateMotor(stepXPin, dirXPin, lmXMin, lmXMax);
-    int ystep = calibrateMotor(stepYPin, dirYPin, lmYMin, lmYMax);;
-
-    xymotor->setBaseX(xyconfig.length_x);
-    xymotor->setBaseY(xyconfig.length_y);
-    xymotor->setTotalStepX(xstep);
-    xymotor->setTotalStepY(ystep);
-    xyconfig.last_x_pos = 0;
-    xyconfig.last_y_pos = 0;
-
-    /* Calibration done */
-    vTaskDelete(NULL);
-}
-
 void vReceiveTask(void *vParameters) {
 
     GParser parser;
@@ -148,10 +124,6 @@ void vReceiveTask(void *vParameters) {
                     /* send `OK` message to mDraw */
                     if (gcode.type != Command::connected)
                         USB_send((uint8_t *) message, strlen(message));
-//                    else {
-//                        char buffer[] = "M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n";
-//                        USB_send((uint8_t *) buffer, strlen(buffer));
-//                    }
                 }
 
                 break;
@@ -167,9 +139,7 @@ void vExecuteTask(void *vParameters) {
     Command recv;
 
     while (1) {
-        /* wait for commands from queue */
         if (xQueueReceive(qCommand, &recv, configTICK_RATE_HZ) == pdTRUE) {
-            /* do something useful*/
             switch (recv.type) {
             case Command::connected:
                 {
@@ -180,18 +150,14 @@ void vExecuteTask(void *vParameters) {
 
 //                    char buffer[] = "M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n";
                     USB_send((uint8_t *) buffer, strlen(buffer));
+
+                    xymotor->isCalibrating = true;
                     pen->moveServo(xyconfig.pen_up);
-
-                    // TODO
-                    // int xstep = calibrateMotor(stepXPin, dirXPin, lmXMin, lmXMax); //
-                    // int ystep = calibrateMotor(stepYPin, dirYPin, lmYMin, lmYMax);
-
+//                    laser->changeLaserPower(0);
                     xymotor->calibrate();
 
                     xymotor->setBaseX(xyconfig.length_x);
                     xymotor->setBaseY(xyconfig.length_y);
-                    // xymotor->setTotalStepX(xstep);
-                    // xymotor->setTotalStepY(ystep);
                     xyconfig.last_x_pos = 0;
                     xyconfig.last_y_pos = 0;
 
@@ -208,10 +174,12 @@ void vExecuteTask(void *vParameters) {
                 xyconfig.last_x_pos = recv.params[0];
                 xyconfig.last_y_pos = recv.params[1];
 
+                vTaskDelay(recv.params[3]);
+
                 break;
             case Command::pen_position:
                 pen->moveServo(recv.params[0]);
-
+                vTaskDelay(configTICK_RATE_HZ / 100);
                 break;
             case Command::pen_setting:
                 xyconfig.pen_up = recv.params[0];
@@ -230,51 +198,12 @@ void vExecuteTask(void *vParameters) {
 
                 break;
             case Command::done:
-            case Command::invalid:
             default:
                 break;
             }
-
-//            vTaskDelay(5);
         }
 
     }
-}
-
-long calibrateMotor(DigitalIoPin* step, DigitalIoPin* dir, DigitalIoPin* lmMin, DigitalIoPin* lmMax) {
-    long totalStep;
-    bool dirToOrigin = false;// true;
-
-    /* move to origin */
-    dir->write(dirToOrigin);
-    bool stepValue = false;
-    while (!lmMin->read() && !lmMax->read()) {
-        step->write(stepValue);
-        stepValue = !stepValue;
-        vTaskDelay(1);
-    }
-
-    /* first calibration */
-    dir->write(!dirToOrigin);
-    stepValue = false;
-    while (!lmMax->read()) {
-        totalStep++;
-        step->write(stepValue);
-        stepValue = !stepValue;
-        vTaskDelay(1);
-    }
-
-    /* second calibration */
-    dir->write(dirToOrigin);
-    stepValue = false;
-    while (!lmMin->read()) {
-        totalStep++;
-        step->write(stepValue);
-        stepValue = !stepValue;
-        vTaskDelay(1);
-    }
-
-    return totalStep / 4;
 }
 
 /* the following is required if runtime statistics are to be collected */
