@@ -15,6 +15,8 @@ public:
     void setTotalStepX(long totalStepX);
     void setBaseY(int baseY);
     void setTotalStepY(long totalStepY);
+    int getTotalStepX();
+    int getTotalStepY();
 
     void calibrate();
     void move(float fromX, float fromY, float toX, float toY, int pps);

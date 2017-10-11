@@ -144,23 +144,24 @@ void vExecuteTask(void *vParameters) {
             case Command::connected:
                 {
                     char buffer[48];
-                    snprintf(buffer, 48, "M10 XY %d %d %.2f %.2f A0 B0 H0 S%d U%d D%d \n",
-                            xyconfig.length_x, xyconfig.length_y, xyconfig.last_x_pos, xyconfig.last_y_pos,
-                            xyconfig.speed, xyconfig.pen_up, xyconfig.pen_down);
-
-//                    char buffer[] = "M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n";
-                    USB_send((uint8_t *) buffer, strlen(buffer));
 
                     xymotor->isCalibrating = true;
                     pen->moveServo(xyconfig.pen_up);
 //                    laser->changeLaserPower(0);
                     xymotor->calibrate();
 
+                    xyconfig.length_x = xyconfig.length_y * xymotor->getTotalStepX() / xymotor->getTotalStepY();
                     xymotor->setBaseX(xyconfig.length_x);
                     xymotor->setBaseY(xyconfig.length_y);
                     xyconfig.last_x_pos = 0;
                     xyconfig.last_y_pos = 0;
 
+                    snprintf(buffer, 48, "M10 XY %d %d %.2f %.2f A0 B0 H0 S%d U%d D%d \n",
+                            xyconfig.length_x, xyconfig.length_y, xyconfig.last_x_pos, xyconfig.last_y_pos,
+                            xyconfig.speed, xyconfig.pen_up, xyconfig.pen_down);
+
+//                    char buffer[] = "M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n";
+                    USB_send((uint8_t *) buffer, strlen(buffer));
                 }
                 break;
             case Command::laser:
@@ -179,7 +180,7 @@ void vExecuteTask(void *vParameters) {
                 break;
             case Command::pen_position:
                 pen->moveServo(recv.params[0]);
-                vTaskDelay(configTICK_RATE_HZ / 100);
+                vTaskDelay(configTICK_RATE_HZ / 20);
                 break;
             case Command::pen_setting:
                 xyconfig.pen_up = recv.params[0];

@@ -25,7 +25,7 @@ XYMotor::~XYMotor() {
 }
 
 void XYMotor::calibrate() {
-    int pps = 1600;
+    int pps = 2000;
 
     dirX = dirToOrigin;
     dirY = dirToOrigin;
@@ -50,8 +50,8 @@ void XYMotor::calibrate() {
     // set calibration flag
     isCalibrating = false;
 
-    totalStepX = totalStepX / 4 + 1;
-    totalStepY = totalStepY / 4 + 1;
+    totalStepX = totalStepX / 4;
+    totalStepY = totalStepY / 4;
 
     char buffer[32];
     snprintf(buffer, 32, "X: %ld\r\nY: %ld\r\n", totalStepX, totalStepY);
@@ -83,6 +83,9 @@ void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
         tempXPin = stepXPin;
         tempYPin = stepYPin;
     }
+
+    stepY += (stepY % 2 == 0) ? 0 : 1;
+    stepX += (stepX % 2 == 0) ? 0 : 1;
 
     delta = 2 * stepY - stepX;
     motorYMove = (delta > 0) ? true : false;
@@ -226,4 +229,12 @@ void XYMotor::setTotalStepX(long total) {
 
 void XYMotor::setTotalStepY(long total) {
     totalStepY = total;
+}
+
+int XYMotor::getTotalStepX() {
+	return totalStepX;
+}
+
+int XYMotor::getTotalStepY() {
+	return totalStepY;
 }
