@@ -55,7 +55,8 @@ private:
     long totalStepY;
     int baseX;
     int baseY;
-    bool dirToOrigin;
+    bool dirXToOrigin;
+    bool dirYToOrigin;
 };
 
 #endif /* XYMOTOR_H_ */

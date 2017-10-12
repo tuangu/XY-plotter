@@ -12,7 +12,8 @@ XYMotor::XYMotor(DigitalIoPin* dirX, DigitalIoPin* stepX, DigitalIoPin* dirY, Di
     dirXPin(dirX), stepXPin(stepX), dirYPin(dirY), stepYPin(stepY),
     lmXMin(lmXMin), lmXMax(lmXMax), lmYMin(lmYMin), lmYMax(lmYMax) {
 
-    dirToOrigin = false; // true;
+    dirXToOrigin = true;
+    dirYToOrigin = false;
     sbRIT = xSemaphoreCreateBinary();
 
     totalStepX = 0;
@@ -25,10 +26,10 @@ XYMotor::~XYMotor() {
 }
 
 void XYMotor::calibrate() {
-    int pps = 2000;
+    int pps = 3600;
 
-    dirX = dirToOrigin;
-    dirY = dirToOrigin;
+    dirX = dirXToOrigin;
+    dirY = dirYToOrigin;
     totalStepX = 0;
     totalStepY = 0;
     /*
@@ -62,9 +63,9 @@ void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
     float dx = toX - fromX;
     float dy = toY - fromY;
 
-    dirX = (dx < 0) ? dirToOrigin : !dirToOrigin;
+    dirX = (dx < 0) ? dirXToOrigin : !dirXToOrigin;
     dirXPin->write(dirX);
-    dirY = (dy < 0) ? dirToOrigin : !dirToOrigin;
+    dirY = (dy < 0) ? dirYToOrigin : !dirYToOrigin;
     dirYPin->write(dirY);
 
     x = 0; xState = false;
@@ -136,10 +137,10 @@ bool XYMotor::irqHandler() {
         isUpdateDelta = !isUpdateDelta;
 
         // check limit switches
-        bool minX = lmXMin->read() && (dirX == dirToOrigin);
-        bool maxX = lmXMax->read() && (dirX == !dirToOrigin);
-        bool minY = lmYMin->read() && (dirY == dirToOrigin);
-        bool maxY = lmYMax->read() && (dirY == !dirToOrigin);
+        bool minX = lmXMin->read() && (dirX == dirXToOrigin);
+        bool maxX = lmXMax->read() && (dirX == !dirXToOrigin);
+        bool minY = lmYMin->read() && (dirY == dirYToOrigin);
+        bool maxY = lmYMax->read() && (dirY == !dirYToOrigin);
 
         if (minX || maxX)
             x = stepX; // X motor will stop in the next interrupt
@@ -155,10 +156,10 @@ bool XYMotor::irqHandlerCalibration() {
 
     Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
 
-    bool minX = lmXMin->read() && (dirX == dirToOrigin);
-    bool maxX = lmXMax->read() && (dirX == !dirToOrigin);
-    bool minY = lmYMin->read() && (dirY == dirToOrigin);
-    bool maxY = lmYMax->read() && (dirY == !dirToOrigin);
+    bool minX = lmXMin->read() && (dirX == dirXToOrigin);
+    bool maxX = lmXMax->read() && (dirX == !dirXToOrigin);
+    bool minY = lmYMin->read() && (dirY == dirYToOrigin);
+    bool maxY = lmYMax->read() && (dirY == !dirYToOrigin);
 
     if (!minX && !maxX) {
         stepXPin->write(xState);
