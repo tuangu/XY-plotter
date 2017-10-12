@@ -180,7 +180,7 @@ void vExecuteTask(void *vParameters) {
                 break;
             case Command::pen_position:
                 pen->moveServo(recv.params[0]);
-                vTaskDelay(configTICK_RATE_HZ / 20);
+                vTaskDelay(configTICK_RATE_HZ / 10);
                 break;
             case Command::pen_setting:
                 xyconfig.pen_up = recv.params[0];

@@ -41,8 +41,8 @@
 #define plotterHeight   310
 
 struct XYSetup {
-	int pen_up = 30;
-	int pen_down = 80;
+	int pen_up = 20;
+	int pen_down = 70;
 	int speed = 50;
 	float last_x_pos;
 	float last_y_pos;
