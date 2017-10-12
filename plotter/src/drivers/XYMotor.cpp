@@ -30,14 +30,16 @@ void XYMotor::calibrate() {
 
     dirX = dirXToOrigin;
     dirY = dirYToOrigin;
-    totalStepX = 0;
-    totalStepY = 0;
     /*
      * i = 0: move to origin
      * i = 1: 1st calibration
      * i = 2: 2nd calibration
      */
     for (int i = 0; i < 3; i++) {
+    	if(i == 1){
+    		totalStepX = 0;
+    		totalStepY = 0;
+    	}
         dirXPin->write(dirX);
         dirYPin->write(dirY);
         xState = false;
