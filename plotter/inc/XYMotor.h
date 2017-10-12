@@ -40,6 +40,8 @@ private:
 
     int x;
     int y;
+    float errXAxis;
+    float errYAxis;
     bool dirX;
     bool dirY;
     int stepX;

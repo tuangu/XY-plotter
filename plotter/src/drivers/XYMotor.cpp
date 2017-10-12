@@ -1,6 +1,7 @@
 #include <XYMotor.h>
 
 #include <stdlib.h>
+#include "math.h"
 #include "ITM_write.h"
 #include "DigitalIoPin.h"
 #include "FreeRTOS.h"
@@ -16,6 +17,8 @@ XYMotor::XYMotor(DigitalIoPin* dirX, DigitalIoPin* stepX, DigitalIoPin* dirY, Di
     dirYToOrigin = false;
     sbRIT = xSemaphoreCreateBinary();
 
+    errXAxis = 0;
+    errYAxis = 0;
     totalStepX = 0;
     totalStepY = 0;
     isCalibrating = true;
@@ -73,22 +76,69 @@ void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
     x = 0; xState = false;
     y = 0; yState = false;
 
-    stepX = abs(dx * totalStepX / baseX);
-    stepY = abs(dy * totalStepY / baseY);
+    float tempStepX = fabs(dx * totalStepX / baseX);
+    float tempStepY = fabs(dy * totalStepY / baseY);
 
-    if (stepX < stepY) {
-        stepX = abs(dy * totalStepY / baseY);
-        stepY = abs(dx * totalStepX / baseX);
+//    stepX = abs(dx * totalStepX / baseX);
+//    stepY = abs(dy * totalStepY / baseY);
+
+    if (tempStepX < tempStepY) { // swap X and Y axis for better resolution
+        tempStepX = fabs(dy * totalStepY / baseY);
+        tempStepY = fabs(dx * totalStepX / baseX);
+
+        stepX = round(tempStepX / 2) * 2;   // round to the nearest even
+        stepY = round(tempStepY / 2) * 2;
+
+        errXAxis += stepY - tempStepY;
+        errYAxis += stepX - tempStepX;
+
+        if (errXAxis > 2) {
+            stepY -= 2;
+            errXAxis -= 2;
+        } else if (errXAxis < -2) {
+            stepY += 2;
+            errYAxis += 2;
+        }
+
+        if (errYAxis > 2) {
+            stepX -= 2;
+            errYAxis -= 2;
+        } else if (errYAxis < -2) {
+            stepX += 2;
+            errYAxis += 2;
+        }
 
         tempXPin = stepYPin;
         tempYPin = stepXPin;
     } else {
+        stepX = round(tempStepX / 2) * 2;   // round to the nearest even
+        stepY = round(tempStepY / 2) * 2;
+
+        errXAxis += stepX - tempStepX;
+        errYAxis += stepY - tempStepY;
+
+        if (errXAxis > 2) {
+            stepX -= 2;
+            errXAxis -= 2;
+        } else if (errXAxis < -2) {
+            stepX += 2;
+            errYAxis += 2;
+        }
+
+        if (errYAxis > 2) {
+            stepY -= 2;
+            errYAxis -= 2;
+        } else if (errYAxis < -2) {
+            stepY += 2;
+            errYAxis += 2;
+        }
+
         tempXPin = stepXPin;
         tempYPin = stepYPin;
     }
 
-    stepY += (stepY % 2 == 0) ? 0 : 1;
-    stepX += (stepX % 2 == 0) ? 0 : 1;
+//    stepY += (stepY % 2 == 0) ? 0 : 1;
+//    stepX += (stepX % 2 == 0) ? 0 : 1;
 
     delta = 2 * stepY - stepX;
     motorYMove = (delta > 0) ? true : false;
