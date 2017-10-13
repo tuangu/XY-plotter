@@ -19,11 +19,12 @@ public:
     int getTotalStepY();
 
     void calibrate();
-    void move(float fromX, float fromY, float toX, float toY, int pps);
+    void move(float toX, float toY, int pps);
     bool irqHandler();
     bool irqHandlerCalibration();
     void RIT_start(int pps); // pps = pulse per revolution
-
+    void SetXStepInMM(int base);
+    void SetYStepInMM(int base);
     bool isCalibrating;
 private:
     DigitalIoPin* dirXPin;
@@ -52,6 +53,12 @@ private:
     bool isUpdateDelta;
     bool motorYMove;
     SemaphoreHandle_t sbRIT;
+
+    float xSPMM;
+    float ySPMM;
+
+    float currentX;
+    float currentY;
 
     long totalStepX;
     long totalStepY;

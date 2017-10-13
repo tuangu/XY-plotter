@@ -153,6 +153,8 @@ void vExecuteTask(void *vParameters) {
                     xyconfig.length_x = xyconfig.length_y * xymotor->getTotalStepX() / xymotor->getTotalStepY();
                     xymotor->setBaseX(xyconfig.length_x);
                     xymotor->setBaseY(xyconfig.length_y);
+                    xymotor->SetXStepInMM(xyconfig.length_x);
+                    xymotor->SetYStepInMM(xyconfig.length_y);
                     xyconfig.last_x_pos = 0;
                     xyconfig.last_y_pos = 0;
 
@@ -169,8 +171,7 @@ void vExecuteTask(void *vParameters) {
                 break;
             case Command::move:
                 // draw at a constant speed
-                xymotor->move(xyconfig.last_x_pos, xyconfig.last_y_pos,
-                              recv.params[0], recv.params[1], motorPps);
+                xymotor->move(recv.params[0], recv.params[1], motorPps);
 
                 xyconfig.last_x_pos = recv.params[0];
                 xyconfig.last_y_pos = recv.params[1];
@@ -179,7 +180,8 @@ void vExecuteTask(void *vParameters) {
 
                 break;
             case Command::pen_position:
-                pen->moveServo(recv.params[0]);
+            	vTaskDelay(configTICK_RATE_HZ / 10);
+            	pen->moveServo(recv.params[0]);
                 vTaskDelay(configTICK_RATE_HZ / 10);
                 break;
             case Command::pen_setting:
@@ -192,7 +194,7 @@ void vExecuteTask(void *vParameters) {
             case Command::to_origin:
                 pen->moveServo(xyconfig.pen_up);
                 // laser->changeLaserPower(0);
-                xymotor->move(xyconfig.last_x_pos, xyconfig.last_y_pos, 0, 0, motorPps);
+                xymotor->move(0, 0, motorPps);
 
                 xyconfig.last_x_pos = 0;
                 xyconfig.last_y_pos = 0;
