@@ -24,6 +24,11 @@ public:
 private:
     int port;
     int pin;
+
+    int times;
+    double remain;
+    double last_value;
+    double duty_cycle;
 };
 
 #endif /* SERVO_H_ */

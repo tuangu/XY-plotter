@@ -28,7 +28,7 @@ void setupHardware();
 /* Tasks Declaration */
 void vReceiveTask(void *vParameters);
 void vExecuteTask(void *vParameters);
-//void vCalibrateTask(void *vParameters);
+void vCalibrateTask(void *vParameters);
 
 DigitalIoPin* dirXPin;
 DigitalIoPin* stepXPin;
@@ -75,6 +75,13 @@ void setupHardware() {
     ITM_init();
     Chip_RIT_Init(LPC_RITIMER);
 
+    // set the priority level of the interrupt
+    // The level must be equal or lower than the maximum priority specified in FreeRTOS config
+    // Note that in a Cortex-M3 a higher number indicates lower interrupt priority
+    NVIC_SetPriority(RITIMER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 1);
+
+    Board_LED_Set(0, false);
+
     dirXPin = new DigitalIoPin(motorXDirPort, motorXDirPin, DigitalIoPin::output, false);
     stepXPin = new DigitalIoPin(motorXPort, motorXPin, DigitalIoPin::output, false);
     dirYPin = new DigitalIoPin(motorYDirPort, motorYDirPin, DigitalIoPin::output, false);
@@ -89,7 +96,6 @@ void setupHardware() {
 //    laser = new Laser();
 //    laser->changeLaserPower(0); // drive laser low
 }
-
 
 void vReceiveTask(void *vParameters) {
 
@@ -147,6 +153,8 @@ void vExecuteTask(void *vParameters) {
                     xyconfig.length_x = xyconfig.length_y * xymotor->getTotalStepX() / xymotor->getTotalStepY();
                     xymotor->setBaseX(xyconfig.length_x);
                     xymotor->setBaseY(xyconfig.length_y);
+                    xymotor->SetXStepInMM(xyconfig.length_x);
+                    xymotor->SetYStepInMM(xyconfig.length_y);
                     xyconfig.last_x_pos = 0;
                     xyconfig.last_y_pos = 0;
 
@@ -163,8 +171,7 @@ void vExecuteTask(void *vParameters) {
                 break;
             case Command::move:
                 // draw at a constant speed
-                xymotor->move(xyconfig.last_x_pos, xyconfig.last_y_pos,
-                              recv.params[0], recv.params[1], motorPps);
+                xymotor->move(recv.params[0], recv.params[1], motorPps);
 
                 xyconfig.last_x_pos = recv.params[0];
                 xyconfig.last_y_pos = recv.params[1];
@@ -173,8 +180,9 @@ void vExecuteTask(void *vParameters) {
 
                 break;
             case Command::pen_position:
-                pen->moveServo(recv.params[0]);
-                vTaskDelay(configTICK_RATE_HZ / 10);
+            	vTaskDelay(configTICK_RATE_HZ / 2);
+            	pen->moveServo(recv.params[0]);
+                vTaskDelay(configTICK_RATE_HZ / 2);
                 break;
             case Command::pen_setting:
                 xyconfig.pen_up = recv.params[0];
@@ -186,7 +194,7 @@ void vExecuteTask(void *vParameters) {
             case Command::to_origin:
                 pen->moveServo(xyconfig.pen_up);
                 // laser->changeLaserPower(0);
-                xymotor->move(xyconfig.last_x_pos, xyconfig.last_y_pos, 0, 0, motorPps);
+                xymotor->move(0, 0, motorPps);
 
                 xyconfig.last_x_pos = 0;
                 xyconfig.last_y_pos = 0;
@@ -197,6 +205,7 @@ void vExecuteTask(void *vParameters) {
                 break;
             }
         }
+
     }
 }
 

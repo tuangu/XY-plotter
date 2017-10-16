@@ -28,11 +28,21 @@ XYMotor::~XYMotor() {
 
 }
 
+void XYMotor::SetXStepInMM(int base){
+	xSPMM = totalStepX / base;
+}
+
+void XYMotor::SetYStepInMM(int base){
+	ySPMM = totalStepY / base;
+}
+
 void XYMotor::calibrate() {
     int pps = 3600;
 
     dirX = dirXToOrigin;
     dirY = dirYToOrigin;
+
+
     /*
      * i = 0: move to origin
      * i = 1: 1st calibration
@@ -59,14 +69,17 @@ void XYMotor::calibrate() {
     totalStepX = totalStepX / 4;
     totalStepY = totalStepY / 4;
 
+    currentX = 0;
+    currentY = 0;
+
     char buffer[32];
     snprintf(buffer, 32, "X: %ld\r\nY: %ld\r\n", totalStepX, totalStepY);
     ITM_write(buffer);
 }
 
-void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
-    float dx = toX - fromX;
-    float dy = toY - fromY;
+void XYMotor::move(float toX, float toY, int pps) {
+    float dx = round(xSPMM*toX) - currentX;
+    float dy = round(ySPMM*toY) - currentY;
 
     dirX = (dx < 0) ? dirXToOrigin : !dirXToOrigin;
     dirXPin->write(dirX);
@@ -76,27 +89,21 @@ void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
     x = 0; xState = false;
     y = 0; yState = false;
 
-    float tempStepX = fabs(dx * totalStepX / baseX);
-    float tempStepY = fabs(dy * totalStepY / baseY);
+    float tempStepX = fabs(xSPMM*toX - currentX);
+    float tempStepY = fabs(ySPMM*toY - currentY);
 
     if (tempStepX < tempStepY) { // swap X and Y axis for better resolution
-        tempStepX = fabs(dy * totalStepY / baseY);
-        tempStepY = fabs(dx * totalStepX / baseX);
+        tempStepX = fabs(ySPMM*toY - currentY);
+        tempStepY = fabs(xSPMM*toX - currentX);
 
-        stepX = round(tempStepX / 2) * 2;   // round to the nearest even
-        stepY = round(tempStepY / 2) * 2;
-
-        errXAxis += stepY - tempStepY;
-        errYAxis += stepX - tempStepX;
+        stepX = fabs(dy);
+        stepY = fabs(dx);
 
         tempXPin = stepYPin;
         tempYPin = stepXPin;
     } else {
-        stepX = round(tempStepX / 2) * 2;   // round to the nearest even
-        stepY = round(tempStepY / 2) * 2;
-
-        errXAxis += stepX - tempStepX;
-        errYAxis += stepY - tempStepY;
+    	stepX = fabs(dx);   // round to the nearest even
+    	stepY = fabs(dy);
 
         tempXPin = stepXPin;
         tempYPin = stepYPin;
@@ -107,7 +114,13 @@ void XYMotor::move(float fromX, float fromY, float toX, float toY, int pps) {
 
     isUpdateDelta = false;
 
+	char buffer[48];
+	snprintf(buffer, 48, "X: %d,Y: %d, cX: %.2f, cY: %.2f\r\n", stepX, stepY, currentX, currentY);
+	ITM_write(buffer);
+
     RIT_start(pps);
+    currentX = round(xSPMM*toX);
+    currentY = round(ySPMM*toY);
 }
 
 bool XYMotor::irqHandler() {
