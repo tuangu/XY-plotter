@@ -45,6 +45,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/freertos/inc}&quot;"/>
 								</option>
 								<option id="com.crt.advproject.cpp.misc.dialect.1050726673" name="Language standard" superClass="com.crt.advproject.cpp.misc.dialect" useByScannerDiscovery="true" value="com.crt.advproject.misc.dialect.cpp11" valueType="enumerated"/>
+								<option id="com.crt.advproject.cpp.exe.debug.option.optimization.level.818195444" name="Optimization Level" superClass="com.crt.advproject.cpp.exe.debug.option.optimization.level" useByScannerDiscovery="false" value="gnu.cpp.compiler.optimization.level.general" valueType="enumerated"/>
 								<inputType id="com.crt.advproject.compiler.cpp.input.1259388424" superClass="com.crt.advproject.compiler.cpp.input"/>
 							</tool>
 							<tool id="com.crt.advproject.gcc.exe.debug.1670456125" name="MCU C Compiler" superClass="com.crt.advproject.gcc.exe.debug">
@@ -72,6 +73,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/freertos/inc}&quot;"/>
 								</option>
 								<option id="com.crt.advproject.c.misc.dialect.1658025959" name="Language standard" superClass="com.crt.advproject.c.misc.dialect" useByScannerDiscovery="true" value="com.crt.advproject.misc.dialect.c11" valueType="enumerated"/>
+								<option id="com.crt.advproject.gcc.exe.debug.option.optimization.level.207758392" name="Optimization Level" superClass="com.crt.advproject.gcc.exe.debug.option.optimization.level" useByScannerDiscovery="false" value="gnu.c.optimization.level.general" valueType="enumerated"/>
 								<inputType id="com.crt.advproject.compiler.input.1196421701" superClass="com.crt.advproject.compiler.input"/>
 							</tool>
 							<tool id="com.crt.advproject.gas.exe.debug.546495517" name="MCU Assembler" superClass="com.crt.advproject.gas.exe.debug">
@@ -264,9 +266,6 @@
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 		<project id="plotter.com.crt.advproject.projecttype.exe.1865230955" name="Executable" projectType="com.crt.advproject.projecttype.exe"/>
 	</storageModule>
-	<storageModule moduleId="scannerConfiguration">
-		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="com.crt.config">
 		<projectStorage>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&#13;
@@ -341,5 +340,17 @@
 		<configuration configurationName="Release">
 			<resource resourceType="PROJECT" workspacePath="/plotter"/>
 		</configuration>
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="com.crt.advproject.config.exe.debug.1885418209;com.crt.advproject.config.exe.debug.1885418209.;com.crt.advproject.gas.exe.debug.546495517;com.crt.advproject.assembler.input.1542922147">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.crt.advproject.GCCManagedMakePerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.crt.advproject.config.exe.debug.1885418209;com.crt.advproject.config.exe.debug.1885418209.;com.crt.advproject.cpp.exe.debug.1056032337;com.crt.advproject.compiler.cpp.input.1259388424">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.crt.advproject.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.crt.advproject.config.exe.debug.1885418209;com.crt.advproject.config.exe.debug.1885418209.;com.crt.advproject.gcc.exe.debug.1670456125;com.crt.advproject.compiler.input.1196421701">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.crt.advproject.GCCManagedMakePerProjectProfile"/>
+		</scannerConfigBuildInfo>
 	</storageModule>
 </cproject>
