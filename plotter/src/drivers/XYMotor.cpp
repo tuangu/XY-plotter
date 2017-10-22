@@ -17,31 +17,23 @@ XYMotor::XYMotor(DigitalIoPin* dirX, DigitalIoPin* stepX, DigitalIoPin* dirY, Di
     dirYToOrigin = false;
     sbRIT = xSemaphoreCreateBinary();
 
-    errXAxis = 0;
-    errYAxis = 0;
     totalStepX = 0;
     totalStepY = 0;
     isCalibrating = true;
+
+    a = motorAccel;
+    vMax = motorMaxSpeed;
+    vMin = motorMinSpeed;
 }
 
 XYMotor::~XYMotor() {
-
-}
-
-void XYMotor::SetXStepInMM(int base){
-	xSPMM = totalStepX / base;
-}
-
-void XYMotor::SetYStepInMM(int base){
-	ySPMM = totalStepY / base;
 }
 
 void XYMotor::calibrate() {
-    int pps = 3600;
+    int pps = 2400;
 
     dirX = dirXToOrigin;
     dirY = dirYToOrigin;
-
 
     /*
      * i = 0: move to origin
@@ -49,15 +41,15 @@ void XYMotor::calibrate() {
      * i = 2: 2nd calibration
      */
     for (int i = 0; i < 3; i++) {
-    	if(i == 1){
-    		totalStepX = 0;
-    		totalStepY = 0;
-    	}
+        if(i == 1){
+            totalStepX = 0;
+            totalStepY = 0;
+        }
         dirXPin->write(dirX);
         dirYPin->write(dirY);
         xState = false;
         yState = false;
-        RIT_start(pps);
+        RIT_start(0, pps);  // Work around solution. Motors will stop if they hit a limit switch
 
         dirX = !dirX;
         dirY = !dirY;
@@ -78,47 +70,59 @@ void XYMotor::calibrate() {
 }
 
 void XYMotor::move(float toX, float toY, int pps) {
-    float dx = round(xSPMM*toX) - currentX;
-    float dy = round(ySPMM*toY) - currentY;
+    int dx = round(xSPMM*toX) - currentX;
+    int dy = round(ySPMM*toY) - currentY;
 
     dirX = (dx < 0) ? dirXToOrigin : !dirXToOrigin;
     dirXPin->write(dirX);
     dirY = (dy < 0) ? dirYToOrigin : !dirYToOrigin;
     dirYPin->write(dirY);
 
-    x = 0; xState = false;
-    y = 0; yState = false;
+    if (abs(dx) > abs(dy)) {
+        leadStep = abs(dx);
+        depStep = abs(dy);
 
-    float tempStepX = fabs(xSPMM*toX - currentX);
-    float tempStepY = fabs(ySPMM*toY - currentY);
-
-    if (tempStepX < tempStepY) { // swap X and Y axis for better resolution
-        tempStepX = fabs(ySPMM*toY - currentY);
-        tempStepY = fabs(xSPMM*toX - currentX);
-
-        stepX = fabs(dy);
-        stepY = fabs(dx);
-
-        tempXPin = stepYPin;
-        tempYPin = stepXPin;
+        leadStepPin = stepXPin;
+        depStepPin = stepYPin;
     } else {
-    	stepX = fabs(dx);   // round to the nearest even
-    	stepY = fabs(dy);
+        leadStep = abs(dy);
+        depStep = abs(dx);
 
-        tempXPin = stepXPin;
-        tempYPin = stepYPin;
+        leadStepPin = stepYPin;
+        depStepPin = stepXPin;
     }
 
-    delta = 2 * stepY - stepX;
-    motorYMove = (delta > 0) ? true : false;
+    delta = 2 * depStep - leadStep; 
 
-    isUpdateDelta = false;
+    float dv = vMax - vMin;
+    float aStep = dv * dv / (2.0f * a); // length of the acceleration phase, [step]
 
-	char buffer[48];
-	snprintf(buffer, 48, "X: %d,Y: %d, cX: %.2f, cY: %.2f\r\n", stepX, stepY, currentX, currentY);
-	ITM_write(buffer);
+    int accelEnd = fmin(aStep, leadStep / 2);
+    int decelStart = leadStep - accelEnd;
 
-    RIT_start(pps);
+    currentDepStep = 0;
+    currentLeadStep = 0;
+
+    for (int i = 0; i < leadStep;) {
+
+        if (currentLeadStep < accelEnd) {           // accelerating
+            float v = sqrt_2a * sqrtf(currentLeadStep) + vMin;
+            int pps = v * microStep;
+            RIT_start(2, pps);
+            i++;
+        } else if (currentLeadStep < decelStart) {  // constant speed
+            float v = sqrt_2a * sqrtf(accelEnd) + vMin;
+            int pps = v * microStep;
+            RIT_start(2 * (decelStart - accelEnd - 1), pps);
+            i += decelStart - accelEnd - 1;
+        } else {                                    // decelerating        
+            float v = sqrt_2a * sqrtf(leadStep - currentLeadStep - 1);
+            int pps = v * microStep;
+            RIT_start(2, pps);
+            i++;
+        }
+    }
+
     currentX = round(xSPMM*toX);
     currentY = round(ySPMM*toY);
 }
@@ -128,51 +132,37 @@ bool XYMotor::irqHandler() {
 
     Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
 
-    if(x == stepX && y == stepY) {
-        // disable timer
+    bool minX = lmXMin->read() && (dirX == dirXToOrigin);
+    bool maxX = lmXMax->read() && (dirX == !dirXToOrigin);
+    bool minY = lmYMin->read() && (dirY == dirYToOrigin);
+    bool maxY = lmYMax->read() && (dirY == !dirYToOrigin);
+
+    if (minX || maxX || minY || maxY) {
+        // motors hit limit switches, stop
         Chip_RIT_Disable(LPC_RITIMER);
-
-        // give semaphore and set context switch flag if a higher priority task was woken up
         xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
+    }
+
+    if ((RIT_count > 0) && (RIT_count % 2 == 0)) {          // write LOW to step pin
+        leadStepPin->write(0);
+
+        if (delta > 0) {
+            depStepPin->write(0);
+        }
+    } else if ((RIT_count > 0) && (RIT_count % 2 != 0)) {   // write HIGH to step pin
+        currentLeadStep += 1;
+        leadStepPin->write(1);
+
+        if (delta > 0) {
+            currentDepStep += 1;
+            depStepPin->write(1);
+            delta = delta - 2 * leadStep;
+        }
+
+        delta = delta + 2 * depStep;
     } else {
-
-        // move motor X, Y
-        // need 2 interrupts to drive step pin from LOW to HIGH
-        if (x < stepX) {
-            tempXPin->write(xState);
-            x += (xState) ? 1 : 0;
-            xState = !xState;
-        }
-
-        if (motorYMove && (y < stepY)) {
-            tempYPin->write(yState);
-            if (yState)
-                motorYMove = false;
-            yState = !yState;
-        }
-
-        // update delta every 2 interrupts
-        if (isUpdateDelta) {
-            if (delta > 0) {
-                y += 1;
-                delta = delta - 2 * stepX;
-                motorYMove = true;
-            }
-            delta = delta + 2 * stepY;
-        }
-
-        isUpdateDelta = !isUpdateDelta;
-
-        // check limit switches
-        bool minX = lmXMin->read() && (dirX == dirXToOrigin);
-        bool maxX = lmXMax->read() && (dirX == !dirXToOrigin);
-        bool minY = lmYMin->read() && (dirY == dirYToOrigin);
-        bool maxY = lmYMax->read() && (dirY == !dirYToOrigin);
-
-        if (minX || maxX)
-            x = stepX; // X motor will stop in the next interrupt
-        if (minY || maxY)
-            y = stepY; // Y motor will stop in the next interrupt
+        Chip_RIT_Disable(LPC_RITIMER);                      // disable timer
+        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);// give semaphore
     }
 
     return xHigherPriorityWoken;
@@ -211,7 +201,7 @@ bool XYMotor::irqHandlerCalibration() {
     return xHigherPriorityWoken;
 }
 
-void XYMotor::RIT_start(int pps) {
+void XYMotor::RIT_start(int count, int pps) {
     uint64_t cmp_value;
 
     // Determine approximate compare value based on clock rate and passed interval
@@ -219,6 +209,8 @@ void XYMotor::RIT_start(int pps) {
 
     // disable timer during configuration
     Chip_RIT_Disable(LPC_RITIMER);
+
+    RIT_count = count;
 
     // enable automatic clear on when compare value==timer value
     // this makes interrupts trigger periodically
@@ -241,28 +233,4 @@ void XYMotor::RIT_start(int pps) {
     } else {
         // unexpected error
     }
-}
-
-void XYMotor::setBaseX(int base) {
-    baseX = base;
-}
-
-void XYMotor::setBaseY(int base) {
-    baseY = base;
-}
-
-void XYMotor::setTotalStepX(long total) {
-    totalStepX = total;
-}
-
-void XYMotor::setTotalStepY(long total) {
-    totalStepY = total;
-}
-
-int XYMotor::getTotalStepX() {
-	return totalStepX;
-}
-
-int XYMotor::getTotalStepY() {
-	return totalStepY;
 }

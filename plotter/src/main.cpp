@@ -151,8 +151,6 @@ void vExecuteTask(void *vParameters) {
                     xymotor->calibrate();
 
                     xyconfig.length_x = xyconfig.length_y * xymotor->getTotalStepX() / xymotor->getTotalStepY();
-                    xymotor->setBaseX(xyconfig.length_x);
-                    xymotor->setBaseY(xyconfig.length_y);
                     xymotor->SetXStepInMM(xyconfig.length_x);
                     xymotor->SetYStepInMM(xyconfig.length_y);
                     xyconfig.last_x_pos = 0;

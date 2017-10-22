@@ -11,20 +11,17 @@ public:
             DigitalIoPin* lmXMin, DigitalIoPin* lmXMax, DigitalIoPin* lmYMin, DigitalIoPin* lmYMax);
     virtual ~XYMotor();
 
-    void setBaseX(int baseX);
-    void setTotalStepX(long totalStepX);
-    void setBaseY(int baseY);
-    void setTotalStepY(long totalStepY);
-    int getTotalStepX();
-    int getTotalStepY();
+    inline int getTotalStepX() { return totalStepX };
+    inline int getTotalStepY() { return totalStepY };
+    inline void SetXStepInMM(int base) { xSPMM = totalStepX / base; };
+    inline void SetYStepInMM(int base) { ySPMM = totalStepY / base; };
 
     void calibrate();
     void move(float toX, float toY, int pps);
     bool irqHandler();
     bool irqHandlerCalibration();
-    void RIT_start(int pps); // pps = pulse per revolution
-    void SetXStepInMM(int base);
-    void SetYStepInMM(int base);
+    void RIT_start(int count, int pps); // pps = pulse per revolution
+
     bool isCalibrating;
 private:
     DigitalIoPin* dirXPin;
@@ -36,36 +33,39 @@ private:
     DigitalIoPin* lmYMin;
     DigitalIoPin* lmYMax;
 
-    DigitalIoPin* tempXPin;
-    DigitalIoPin* tempYPin;
-
-    int x;
-    int y;
-    float errXAxis;
-    float errYAxis;
-    bool dirX;
-    bool dirY;
-    int stepX;
-    int stepY;
-    bool xState;
-    bool yState;
-    int delta;
-    bool isUpdateDelta;
-    bool motorYMove;
-    SemaphoreHandle_t sbRIT;
-
+    bool dirXToOrigin;
+    bool dirYToOrigin;
+    long totalStepX;
+    long totalStepY;
     float xSPMM;
     float ySPMM;
 
+    // Calibration only
+    bool xState;
+    bool yState;
+
+    // Moving 
+    DigitalIoPin* leadStepPin;  // the motor which does the most steps leads the movement.
+    DigitalIoPin* depStepPin;   // the other motor
+    int leadStep;               // total step to move of the leading motor
+    int depStep;                // total step to move of the dependent motor
+    bool leadPinState;
+    bool depPinState;
+    int currentLeadStep;        // current step of the leading motor    
+    int currentDepStep;         // current step of the dependent motor
+    int delta;                  // delta of Bresenham's algorithm              
+    float a;                    // acceleration and deceleration's rate, [step / s^2]
+    float sqrt_2a;              // square root of a
+    float vMax;                 // [step / s]
+    float vMin;                 // [step / s]
+    int microStep;              // (1 / microStep) micro stepping mode
+    int RIT_count;              
+
+    SemaphoreHandle_t sbRIT;
+    bool dirX;
+    bool dirY;
     int currentX;
     int currentY;
-
-    long totalStepX;
-    long totalStepY;
-    int baseX;
-    int baseY;
-    bool dirXToOrigin;
-    bool dirYToOrigin;
 };
 
 #endif /* XYMOTOR_H_ */
