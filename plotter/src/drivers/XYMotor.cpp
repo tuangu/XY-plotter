@@ -1,4 +1,5 @@
 #include <XYMotor.h>
+#include <Config.h>
 
 #include <stdlib.h>
 #include "math.h"
@@ -24,13 +25,17 @@ XYMotor::XYMotor(DigitalIoPin* dirX, DigitalIoPin* stepX, DigitalIoPin* dirY, Di
     a = motorAccel;
     vMax = motorMaxSpeed;
     vMin = motorMinSpeed;
+
+    accelEnd = (vMax - vMin) * (vMax - vMin) / (2.0f * a);
+    sqrt_2a = sqrtf(2*a);
+    microStep = 16;
 }
 
 XYMotor::~XYMotor() {
 }
 
 void XYMotor::calibrate() {
-    int pps = 2400;
+    int pps = 3600;
 
     dirX = dirXToOrigin;
     dirY = dirYToOrigin;
@@ -69,7 +74,7 @@ void XYMotor::calibrate() {
     ITM_write(buffer);
 }
 
-void XYMotor::move(float toX, float toY, int pps) {
+void XYMotor::move(float toX, float toY) {
     int dx = round(xSPMM*toX) - currentX;
     int dy = round(ySPMM*toY) - currentY;
 
@@ -94,32 +99,34 @@ void XYMotor::move(float toX, float toY, int pps) {
 
     delta = 2 * depStep - leadStep; 
 
-    float dv = vMax - vMin;
-    float aStep = dv * dv / (2.0f * a); // length of the acceleration phase, [step]
+//    float dv = vMax - vMin;
+//    float accelEnd = dv * dv / (2.0f * a); // length of the acceleration phase, [step]
 
-    int accelEnd = fmin(aStep, leadStep / 2);
-    int decelStart = leadStep - accelEnd;
+
+//    int accelEnd = fmin(aStep, leadStep / 2);
+//    int decelStart = leadStep - accelEnd + 1;
 
     currentDepStep = 0;
     currentLeadStep = 0;
 
-    for (int i = 0; i < leadStep;) {
-
+    while (currentLeadStep < leadStep) {
         if (currentLeadStep < accelEnd) {           // accelerating
             float v = sqrt_2a * sqrtf(currentLeadStep) + vMin;
             int pps = v * microStep;
             RIT_start(2, pps);
-            i++;
-        } else if (currentLeadStep < decelStart) {  // constant speed
+//        } else if (currentLeadStep < decelStart) {  // constant speed
+//            float v = sqrt_2a * sqrtf(accelEnd) + vMin;
+//            int pps = v * microStep;
+//            RIT_start(2 * (decelStart - accelEnd + 1), pps);
+//        } else if (currentLeadStep < leadStep) {                  // decelerating
+//            float v = sqrt_2a * sqrtf(leadStep - currentLeadStep - 1);
+//            int pps = v * microStep;
+//            RIT_start(2, pps);
+//        }
+        } else {
             float v = sqrt_2a * sqrtf(accelEnd) + vMin;
             int pps = v * microStep;
-            RIT_start(2 * (decelStart - accelEnd - 1), pps);
-            i += decelStart - accelEnd - 1;
-        } else {                                    // decelerating        
-            float v = sqrt_2a * sqrtf(leadStep - currentLeadStep - 1);
-            int pps = v * microStep;
-            RIT_start(2, pps);
-            i++;
+            RIT_start(2 * (leadStep - accelEnd + 1), pps);
         }
     }
 
@@ -143,19 +150,22 @@ bool XYMotor::irqHandler() {
         xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
     }
 
-    if ((RIT_count > 0) && (RIT_count % 2 == 0)) {          // write LOW to step pin
+    if ((RIT_count > 0) && ((RIT_count % 2) == 0)) {          // write LOW to step pin
+        RIT_count--;
         leadStepPin->write(0);
 
         if (delta > 0) {
             depStepPin->write(0);
         }
-    } else if ((RIT_count > 0) && (RIT_count % 2 != 0)) {   // write HIGH to step pin
+    } else if ((RIT_count > 0) && ((RIT_count % 2) != 0)) {   // write HIGH to step pin
+        RIT_count--;
         currentLeadStep += 1;
         leadStepPin->write(1);
 
         if (delta > 0) {
             currentDepStep += 1;
             depStepPin->write(1);
+
             delta = delta - 2 * leadStep;
         }
 

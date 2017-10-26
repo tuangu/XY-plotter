@@ -9,7 +9,7 @@
 #define USER_VCOM_H_
 
 /* remove comment on the following line to make CDC task to poll without yielding/blocking */
-//#define POLLING_CDC
+#define POLLING_CDC
 
 /* number of USB receive buffers */
 #define RCV_BUFFERS 16

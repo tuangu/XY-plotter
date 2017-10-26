@@ -11,13 +11,13 @@ public:
             DigitalIoPin* lmXMin, DigitalIoPin* lmXMax, DigitalIoPin* lmYMin, DigitalIoPin* lmYMax);
     virtual ~XYMotor();
 
-    inline int getTotalStepX() { return totalStepX };
-    inline int getTotalStepY() { return totalStepY };
+    inline int getTotalStepX() { return totalStepX; };
+    inline int getTotalStepY() { return totalStepY; };
     inline void SetXStepInMM(int base) { xSPMM = totalStepX / base; };
     inline void SetYStepInMM(int base) { ySPMM = totalStepY / base; };
 
     void calibrate();
-    void move(float toX, float toY, int pps);
+    void move(float toX, float toY);
     bool irqHandler();
     bool irqHandlerCalibration();
     void RIT_start(int count, int pps); // pps = pulse per revolution
@@ -53,19 +53,20 @@ private:
     bool depPinState;
     int currentLeadStep;        // current step of the leading motor    
     int currentDepStep;         // current step of the dependent motor
-    int delta;                  // delta of Bresenham's algorithm              
+    volatile int delta;                  // delta of Bresenham's algorithm
     float a;                    // acceleration and deceleration's rate, [step / s^2]
     float sqrt_2a;              // square root of a
+    float accelEnd;             // length of the acceleration phase, [step]
     float vMax;                 // [step / s]
     float vMin;                 // [step / s]
     int microStep;              // (1 / microStep) micro stepping mode
-    int RIT_count;              
+    volatile int RIT_count;
 
     SemaphoreHandle_t sbRIT;
     bool dirX;
     bool dirY;
-    int currentX;
-    int currentY;
+    volatile int currentX;
+    volatile int currentY;
 };
 
 #endif /* XYMOTOR_H_ */

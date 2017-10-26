@@ -54,7 +54,7 @@ int main(void) {
     xTaskCreate(vReceiveTask, "Receive Task", configMINIMAL_STACK_SIZE * 3, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
-    xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE * 4, NULL,
+    xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE * 5, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(cdc_task, "CDC Task", configMINIMAL_STACK_SIZE * 2, NULL,
@@ -76,8 +76,6 @@ void setupHardware() {
     Chip_RIT_Init(LPC_RITIMER);
 
     // set the priority level of the interrupt
-    // The level must be equal or lower than the maximum priority specified in FreeRTOS config
-    // Note that in a Cortex-M3 a higher number indicates lower interrupt priority
     NVIC_SetPriority(RITIMER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 1);
 
     Board_LED_Set(0, false);
@@ -139,7 +137,7 @@ void vExecuteTask(void *vParameters) {
     Command recv;
 
     while (1) {
-        if (xQueueReceive(qCommand, &recv, configTICK_RATE_HZ) == pdTRUE) {
+        if (xQueueReceive(qCommand, &recv, portMAX_DELAY) == pdTRUE) {
             switch (recv.type) {
             case Command::connected:
                 {
@@ -166,10 +164,10 @@ void vExecuteTask(void *vParameters) {
                 break;
             case Command::laser:
 //                laser->changeLaserPower(recv.params[0]);
+
                 break;
             case Command::move:
-                // draw at a constant speed
-                xymotor->move(recv.params[0], recv.params[1], motorPps);
+                xymotor->move(recv.params[0], recv.params[1]);
 
                 xyconfig.last_x_pos = recv.params[0];
                 xyconfig.last_y_pos = recv.params[1];
@@ -178,9 +176,9 @@ void vExecuteTask(void *vParameters) {
 
                 break;
             case Command::pen_position:
-            	vTaskDelay(configTICK_RATE_HZ / 2);
             	pen->moveServo(recv.params[0]);
                 vTaskDelay(configTICK_RATE_HZ / 2);
+
                 break;
             case Command::pen_setting:
                 xyconfig.pen_up = recv.params[0];
@@ -192,7 +190,7 @@ void vExecuteTask(void *vParameters) {
             case Command::to_origin:
                 pen->moveServo(xyconfig.pen_up);
                 // laser->changeLaserPower(0);
-                xymotor->move(0, 0, motorPps);
+                xymotor->move(0, 0);
 
                 xyconfig.last_x_pos = 0;
                 xyconfig.last_y_pos = 0;
