@@ -13,8 +13,8 @@ public:
 
     inline int getTotalStepX() { return totalStepX; };
     inline int getTotalStepY() { return totalStepY; };
-    inline void SetXStepInMM(int base) { xSPMM = totalStepX / base; };
-    inline void SetYStepInMM(int base) { ySPMM = totalStepY / base; };
+    inline void SetXStepInMM(float base) { xSPMM = (float) totalStepX / base; };
+    inline void SetYStepInMM(float base) { ySPMM = (float) totalStepY / base; };
 
     void calibrate();
     void move(float toX, float toY);
@@ -49,11 +49,9 @@ private:
     DigitalIoPin* depStepPin;   // the other motor
     int leadStep;               // total step to move of the leading motor
     int depStep;                // total step to move of the dependent motor
-    bool leadPinState;
-    bool depPinState;
     int currentLeadStep;        // current step of the leading motor    
     int currentDepStep;         // current step of the dependent motor
-    volatile int delta;                  // delta of Bresenham's algorithm
+    volatile int delta;         // delta of Bresenham's algorithm
     float a;                    // acceleration and deceleration's rate, [step / s^2]
     float sqrt_2a;              // square root of a
     float accelEnd;             // length of the acceleration phase, [step]

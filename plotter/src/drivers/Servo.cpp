@@ -41,7 +41,6 @@ void Servo::moveServo(double value) {
     	for(int i = 0; i < times; i++){
     	    duty_cycle += ((5 / 255.00)*1000.00);
     	    LPC_SCT0->MATCHREL[1].L = duty_cycle;
-//    	    Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, port, pin);
 
 //    	    sprintf(debug, "Increase to : %5.2f \n", (double) duty_cycle);
 //    	    ITM_write(debug);
@@ -57,14 +56,12 @@ void Servo::moveServo(double value) {
 			duty_cycle = 2000;
 		}
 		LPC_SCT0->MATCHREL[1].L = duty_cycle;
-//    	Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, port, pin);
     }
 
     if(value < last_value){
 		for(int i = 0; i < times; i++){
 			duty_cycle -= ((5 / 255.00)*1000.00);
 			LPC_SCT0->MATCHREL[1].L = duty_cycle;
-//			Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, port, pin);
 
 //			sprintf(debug, "Reduce to : %5.2f \n", (double) duty_cycle);
 //			ITM_write(debug);
@@ -77,7 +74,6 @@ void Servo::moveServo(double value) {
 			duty_cycle = 2000;
 		}
 		LPC_SCT0->MATCHREL[1].L = duty_cycle;
-//		Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, port, pin);
 	}
 
 //    sprintf(debug, "Final cycle: %5.2f, times: %d, remain: %.2f\n", (double) LPC_SCT0->MATCHREL[1].L, (int)times, (double)remain);

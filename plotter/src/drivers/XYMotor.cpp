@@ -10,7 +10,7 @@
 #include "semphr.h"
 
 XYMotor::XYMotor(DigitalIoPin* dirX, DigitalIoPin* stepX, DigitalIoPin* dirY, DigitalIoPin *stepY,
-        DigitalIoPin* lmXMin, DigitalIoPin* lmXMax, DigitalIoPin* lmYMin, DigitalIoPin* lmYMax):
+    DigitalIoPin* lmXMin, DigitalIoPin* lmXMax, DigitalIoPin* lmYMin, DigitalIoPin* lmYMax):
     dirXPin(dirX), stepXPin(stepX), dirYPin(dirY), stepYPin(stepY),
     lmXMin(lmXMin), lmXMax(lmXMax), lmYMin(lmYMin), lmYMax(lmYMax) {
 
@@ -74,6 +74,8 @@ void XYMotor::calibrate() {
     ITM_write(buffer);
 }
 
+// move 2 motors
+// we are using Bresenham's algorithm to draw
 void XYMotor::move(float toX, float toY) {
     int dx = round(xSPMM*toX) - currentX;
     int dy = round(ySPMM*toY) - currentY;
@@ -83,6 +85,7 @@ void XYMotor::move(float toX, float toY) {
     dirY = (dy < 0) ? dirYToOrigin : !dirYToOrigin;
     dirYPin->write(dirY);
 
+    // choose lead axis
     if (abs(dx) > abs(dy)) {
         leadStep = abs(dx);
         depStep = abs(dy);
@@ -97,41 +100,32 @@ void XYMotor::move(float toX, float toY) {
         depStepPin = stepXPin;
     }
 
-    delta = 2 * depStep - leadStep; 
-
-//    float dv = vMax - vMin;
-//    float accelEnd = dv * dv / (2.0f * a); // length of the acceleration phase, [step]
-
-
-//    int accelEnd = fmin(aStep, leadStep / 2);
-//    int decelStart = leadStep - accelEnd + 1;
+    delta = 2 * depStep - leadStep;
 
     currentDepStep = 0;
     currentLeadStep = 0;
 
     while (currentLeadStep < leadStep) {
-        if (currentLeadStep < accelEnd) {           // accelerating
+        if (currentLeadStep < accelEnd) {   // accelerating
             float v = sqrt_2a * sqrtf(currentLeadStep) + vMin;
             int pps = v * microStep;
             RIT_start(2, pps);
-//        } else if (currentLeadStep < decelStart) {  // constant speed
-//            float v = sqrt_2a * sqrtf(accelEnd) + vMin;
-//            int pps = v * microStep;
-//            RIT_start(2 * (decelStart - accelEnd + 1), pps);
-//        } else if (currentLeadStep < leadStep) {                  // decelerating
-//            float v = sqrt_2a * sqrtf(leadStep - currentLeadStep - 1);
-//            int pps = v * microStep;
-//            RIT_start(2, pps);
-//        }
-        } else {
+        } else {                            // constant speed
             float v = sqrt_2a * sqrtf(accelEnd) + vMin;
             int pps = v * microStep;
-            RIT_start(2 * (leadStep - accelEnd + 1), pps);
+            RIT_start(2 * (leadStep - accelEnd), pps);
         }
     }
 
-    currentX = round(xSPMM*toX);
-    currentY = round(ySPMM*toY);
+    if (abs(dx) > abs(dy)) {
+        currentX = (dirX == dirXToOrigin) ? (currentX - currentLeadStep) : (currentX + currentLeadStep);
+        currentY = (dirY == dirYToOrigin) ? (currentY - currentDepStep) : (currentY + currentDepStep);
+    } else {
+        currentX = (dirX == dirXToOrigin) ? (currentX - currentDepStep) : (currentX + currentDepStep);
+        currentY = (dirY == dirYToOrigin) ? (currentY - currentLeadStep) : (currentY + currentLeadStep);
+    }
+//    currentX = round(xSPMM*toX);
+//    currentY = round(ySPMM*toY);
 }
 
 bool XYMotor::irqHandler() {

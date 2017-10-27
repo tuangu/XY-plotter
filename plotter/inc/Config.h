@@ -19,8 +19,8 @@
 #define motorYDirPort   1
 #define motorYDirPin    0
 
-#define motorMaxSpeed	450     // max speed, [step / s]
-#define motorMinSpeed	250		// min speed, [step / s]
+#define motorMaxSpeed	700     // max speed, [step / s]
+#define motorMinSpeed	300		// min speed, [step / s]
 #define motorAccel		5		// acceleration rate, [step / s^2]
 
 /* Limit switches */

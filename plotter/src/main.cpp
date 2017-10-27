@@ -55,7 +55,7 @@ int main(void) {
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(vExecuteTask, "Execute Task", configMINIMAL_STACK_SIZE * 5, NULL,
-            (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
+            (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
 
     xTaskCreate(cdc_task, "CDC Task", configMINIMAL_STACK_SIZE * 2, NULL,
             (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
@@ -96,6 +96,7 @@ void setupHardware() {
 }
 
 void vReceiveTask(void *vParameters) {
+    vTaskDelay(configTICK_RATE_HZ);
 
     GParser parser;
     char message[] = "OK\n";
@@ -126,13 +127,13 @@ void vReceiveTask(void *vParameters) {
 
                 break;
             }
-
             idx += len;
         }
     }
 }
 
 void vExecuteTask(void *vParameters) {
+    vTaskDelay(configTICK_RATE_HZ);
 
     Command recv;
 
@@ -154,17 +155,16 @@ void vExecuteTask(void *vParameters) {
                     xyconfig.last_x_pos = 0;
                     xyconfig.last_y_pos = 0;
 
+                    // M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90
                     snprintf(buffer, 48, "M10 XY %d %d %.2f %.2f A0 B0 H0 S%d U%d D%d \n",
                             xyconfig.length_x, xyconfig.length_y, xyconfig.last_x_pos, xyconfig.last_y_pos,
                             xyconfig.speed, xyconfig.pen_up, xyconfig.pen_down);
 
-//                    char buffer[] = "M10 XY 380 310 0.00 0.00 A0 B0 H0 S50 U130 D90 \n";
                     USB_send((uint8_t *) buffer, strlen(buffer));
                 }
                 break;
             case Command::laser:
 //                laser->changeLaserPower(recv.params[0]);
-
                 break;
             case Command::move:
                 xymotor->move(recv.params[0], recv.params[1]);
@@ -173,10 +173,10 @@ void vExecuteTask(void *vParameters) {
                 xyconfig.last_y_pos = recv.params[1];
 
                 vTaskDelay(recv.params[3]);
-
                 break;
             case Command::pen_position:
-            	pen->moveServo(recv.params[0]);
+                pen->moveServo(recv.params[0]);
+
                 vTaskDelay(configTICK_RATE_HZ / 2);
 
                 break;
