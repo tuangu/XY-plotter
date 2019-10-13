@@ -1,7 +1,7 @@
 # XY Plotter
 This is a LPC1549-based firmware to control Makeblock XY-plotter with laser engraver update.
 
-![plotter in action](https://media.giphy.com/media/l378uJfeDieuPSVbO/giphy.gif)
+[See the plotter in action](https://imgur.com/AzgXh5j)
 
 ## Requirements
 * Hardware
